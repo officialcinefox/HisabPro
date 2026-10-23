@@ -55,20 +55,11 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     }
 
     setLoading(true);
-    const { error, needsEmailVerification } = await signUp(
-      email,
-      password,
-      name,
-      phone
-    );
+    const { error } = await signUp(email, password, name, phone);
     setLoading(false);
 
     if (error) {
       setErrorMessage(error);
-    } else if (needsEmailVerification) {
-      setSuccessMessage(
-        'Account created! If email confirmation is required, please check your inbox.'
-      );
     }
   };
 

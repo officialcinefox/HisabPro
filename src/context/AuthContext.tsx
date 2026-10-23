@@ -144,11 +144,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .select();
 
         await fetchProfile(data.user.id);
+
+        // If session was not immediately attached, sign in automatically
+        if (!data.session) {
+          const signInRes = await supabase.auth.signInWithPassword({
+            email: trimmedEmail,
+            password,
+          });
+          if (signInRes.data.session) {
+            setSession(signInRes.data.session);
+            setUser(signInRes.data.user);
+            if (signInRes.data.user) {
+              await fetchProfile(signInRes.data.user.id);
+            }
+          }
+        }
       }
 
       return {
         error: null,
-        needsEmailVerification: !data.session,
       };
     } catch (err: any) {
       return { error: err.message || 'An unexpected error occurred during sign up.' };
