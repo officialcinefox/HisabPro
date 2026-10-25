@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Customer, Transaction } from '../types';
@@ -250,6 +251,11 @@ export const generateAndShareCustomerReportPdf = async (
       </body>
     </html>
   `;
+
+  if (Platform.OS === 'web') {
+    await Print.printAsync({ html });
+    return;
+  }
 
   const { uri } = await Print.printToFileAsync({ html });
 

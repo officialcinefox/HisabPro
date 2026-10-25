@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Linking,
+  Platform,
   ScrollView,
   Share,
   StyleSheet,
@@ -125,8 +126,18 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
     });
 
     const encoded = encodeURIComponent(text);
+    const cleanPhone = customer.phone ? customer.phone.replace(/[^0-9]/g, '') : '';
+    const whatsappWebUrl = cleanPhone
+      ? `https://wa.me/${cleanPhone}?text=${encoded}`
+      : `https://wa.me/?text=${encoded}`;
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.open(whatsappWebUrl, '_blank');
+      return;
+    }
+
     const whatsappUrl = customer.phone
-      ? `whatsapp://send?phone=${customer.phone.replace(/[^0-9]/g, '')}&text=${encoded}`
+      ? `whatsapp://send?phone=${cleanPhone}&text=${encoded}`
       : `whatsapp://send?text=${encoded}`;
 
     const canOpen = await Linking.canOpenURL(whatsappUrl);
