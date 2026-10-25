@@ -1,14 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
-  Linking,
-  Platform,
-  ScrollView,
-  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp } from '@react-navigation/native';
@@ -21,7 +18,7 @@ import { RootStackParamList } from '../../types';
 import { formatCurrency, formatDate, getTodayDateString } from '../../utils/formatting';
 import {
   generateAndShareCustomerReportPdf,
-  generatePlainTextReport,
+  generateAndShareViaWhatsApp,
 } from '../../utils/pdfGenerator';
 
 type PeriodMode = '7days' | '30days' | 'custom';
@@ -118,35 +115,14 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
   };
 
   const handleShareWhatsApp = async () => {
-    const text = generatePlainTextReport({
-      customer,
-      transactions: filteredTx,
-      periodLabel,
-    });
-
-    const encoded = encodeURIComponent(text);
-    const cleanPhone = customer.phone ? customer.phone.replace(/[^0-9]/g, '') : '';
-    const whatsappWebUrl = cleanPhone
-      ? `https://wa.me/${cleanPhone}?text=${encoded}`
-      : `https://wa.me/?text=${encoded}`;
-
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.open(whatsappWebUrl, '_blank');
-      return;
-    }
-
-    const whatsappUrl = customer.phone
-      ? `whatsapp://send?phone=${cleanPhone}&text=${encoded}`
-      : `whatsapp://send?text=${encoded}`;
-
-    const canOpen = await Linking.canOpenURL(whatsappUrl);
-    if (canOpen) {
-      await Linking.openURL(whatsappUrl);
-    } else {
-      await Share.share({
-        message: text,
-        title: `HisabPro Statement - ${customer.name}`,
+    try {
+      await generateAndShareViaWhatsApp({
+        customer,
+        transactions: filteredTx,
+        periodLabel,
       });
+    } catch (e: any) {
+      Alert.alert('WhatsApp Error', e.message || 'Unable to share via WhatsApp.');
     }
   };
 
