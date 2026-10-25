@@ -13,10 +13,8 @@ interface GenerateReportOptions {
   periodLabel: string;
 }
 
-/**
- * Converts a numeric amount to Indian currency words
- * e.g. 42000 -> Rupees Forty Two Thousand Only
- */
+// ─── Number to Words ────────────────────────────────────────────────────────
+
 export function numberToWordsIndian(amount: number): string {
   const rounded = Math.round(Math.abs(amount));
   if (rounded === 0) return 'Rupees Zero Only';
@@ -30,23 +28,14 @@ export function numberToWordsIndian(amount: number): string {
     '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety',
   ];
 
-  function convertTwoDigits(n: number): string {
+  function two(n: number): string {
     if (n < 20) return ones[n];
-    const t = Math.floor(n / 10);
-    const r = n % 10;
-    return tens[t] + (r > 0 ? ' ' + ones[r] : '');
+    return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
   }
-
-  function convertThreeDigits(n: number): string {
+  function three(n: number): string {
     const h = Math.floor(n / 100);
     const rest = n % 100;
-    let res = '';
-    if (h > 0) res += ones[h] + ' Hundred';
-    if (rest > 0) {
-      if (res) res += ' and ';
-      res += convertTwoDigits(rest);
-    }
-    return res;
+    return (h ? ones[h] + ' Hundred' : '') + (rest ? (h ? ' and ' : '') + two(rest) : '');
   }
 
   const crores = Math.floor(rounded / 10000000);
@@ -58,788 +47,513 @@ export function numberToWordsIndian(amount: number): string {
   const hundreds = rem;
 
   const parts: string[] = [];
-  if (crores > 0) parts.push(convertThreeDigits(crores) + ' Crore');
-  if (lakhs > 0) parts.push(convertThreeDigits(lakhs) + ' Lakh');
-  if (thousands > 0) parts.push(convertThreeDigits(thousands) + ' Thousand');
-  if (hundreds > 0) parts.push(convertThreeDigits(hundreds));
+  if (crores > 0) parts.push(three(crores) + ' Crore');
+  if (lakhs > 0) parts.push(three(lakhs) + ' Lakh');
+  if (thousands > 0) parts.push(three(thousands) + ' Thousand');
+  if (hundreds > 0) parts.push(three(hundreds));
 
   return 'Rupees ' + parts.join(' ') + ' Only';
 }
 
-/**
- * High-fidelity SVG QR code for verification on PDF
- */
-const QR_CODE_SVG = `
-<svg width="78" height="78" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100" height="100" rx="8" fill="#F8FAFC"/>
-  <!-- Corner 1 -->
-  <rect x="10" y="10" width="26" height="26" rx="4" fill="#0B0F11"/>
-  <rect x="14" y="14" width="18" height="18" rx="2" fill="#FFFFFF"/>
-  <rect x="18" y="18" width="10" height="10" rx="1" fill="#FF7A00"/>
-  <!-- Corner 2 -->
-  <rect x="64" y="10" width="26" height="26" rx="4" fill="#0B0F11"/>
-  <rect x="68" y="14" width="18" height="18" rx="2" fill="#FFFFFF"/>
-  <rect x="72" y="18" width="10" height="10" rx="1" fill="#FF7A00"/>
-  <!-- Corner 3 -->
-  <rect x="10" y="64" width="26" height="26" rx="4" fill="#0B0F11"/>
-  <rect x="14" y="68" width="18" height="18" rx="2" fill="#FFFFFF"/>
-  <rect x="18" y="72" width="10" height="10" rx="1" fill="#FF7A00"/>
-  <!-- Matrix Dots -->
-  <rect x="42" y="12" width="6" height="6" fill="#0B0F11"/>
-  <rect x="52" y="12" width="6" height="6" fill="#0B0F11"/>
-  <rect x="42" y="24" width="6" height="6" fill="#0B0F11"/>
-  <rect x="12" y="42" width="6" height="6" fill="#0B0F11"/>
-  <rect x="24" y="42" width="6" height="6" fill="#0B0F11"/>
-  <rect x="36" y="36" width="8" height="8" rx="2" fill="#FF7A00"/>
-  <rect x="48" y="36" width="8" height="8" rx="2" fill="#0B0F11"/>
-  <rect x="60" y="42" width="6" height="6" fill="#0B0F11"/>
-  <rect x="72" y="42" width="6" height="6" fill="#0B0F11"/>
-  <rect x="82" y="42" width="6" height="6" fill="#0B0F11"/>
-  <rect x="36" y="48" width="8" height="8" rx="2" fill="#0B0F11"/>
-  <rect x="48" y="48" width="8" height="8" rx="2" fill="#FF7A00"/>
-  <rect x="60" y="54" width="6" height="6" fill="#0B0F11"/>
-  <rect x="42" y="66" width="6" height="6" fill="#0B0F11"/>
-  <rect x="52" y="66" width="6" height="6" fill="#0B0F11"/>
-  <rect x="64" y="66" width="6" height="6" fill="#0B0F11"/>
-  <rect x="76" y="66" width="6" height="6" fill="#0B0F11"/>
-  <rect x="84" y="76" width="6" height="6" fill="#0B0F11"/>
-  <rect x="42" y="82" width="6" height="6" fill="#0B0F11"/>
-  <rect x="54" y="82" width="6" height="6" fill="#0B0F11"/>
-  <rect x="68" y="82" width="6" height="6" fill="#0B0F11"/>
-</svg>
-`;
+// ─── Build HTML template matching reference image ───────────────────────────
 
-/**
- * Handle direct PDF download & print on Web platform
- */
-async function generateAndDownloadPdfOnWeb(html: string, customerName: string): Promise<void> {
-  if (typeof window === 'undefined' || typeof document === 'undefined') return;
-
-  const fileName = `HisabPro_Statement_${customerName.replace(/[^a-zA-Z0-9]/g, '_')}`;
-
-  // Helper to load html2pdf script dynamically
-  const loadHtml2Pdf = (): Promise<any> => {
-    return new Promise((resolve, reject) => {
-      if ((window as any).html2pdf) {
-        resolve((window as any).html2pdf);
-        return;
-      }
-      const existing = document.getElementById('html2pdf-cdn');
-      if (existing) {
-        existing.addEventListener('load', () => resolve((window as any).html2pdf));
-        existing.addEventListener('error', reject);
-        return;
-      }
-      const script = document.createElement('script');
-      script.id = 'html2pdf-cdn';
-      script.src =
-        'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      script.onload = () => resolve((window as any).html2pdf);
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
-  };
-
-  // 1. Try direct PDF file generation & download via html2pdf
-  try {
-    const html2pdf = await Promise.race([
-      loadHtml2Pdf(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
-    ]);
-
-    if (html2pdf) {
-      const container = document.createElement('div');
-      container.innerHTML = html;
-      container.style.position = 'fixed';
-      container.style.left = '-9999px';
-      container.style.top = '0';
-      container.style.width = '794px'; // A4 width at 96 DPI
-      container.style.backgroundColor = '#FFFFFF';
-      document.body.appendChild(container);
-
-      // Remove web-only toolbar from direct PDF
-      const toolbar = container.querySelector('.web-only-toolbar');
-      if (toolbar) toolbar.remove();
-
-      const opt = {
-        margin: [6, 6, 6, 6],
-        filename: `${fileName}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      };
-
-      await html2pdf().set(opt).from(container).save();
-      document.body.removeChild(container);
-      return;
-    }
-  } catch (err) {
-    console.log('Direct html2pdf download not available, opening print window:', err);
-  }
-
-  // 2. Fallback: Open dedicated print tab / window with the statement
-  const printWindow = window.open('', '_blank');
-  if (printWindow) {
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 400);
-  } else {
-    // 3. Fallback: Use hidden iframe for printing
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-    const doc = iframe.contentWindow?.document || iframe.contentDocument;
-    if (doc) {
-      doc.open();
-      doc.write(html);
-      doc.close();
-      iframe.contentWindow?.focus();
-      setTimeout(() => {
-        iframe.contentWindow?.print();
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-        }, 2000);
-      }, 500);
-    }
-  }
-}
-
-/**
- * Generate a PDF Statement matching the reference layout in Image 3
- */
-export const generateAndShareCustomerReportPdf = async (
-  options: GenerateReportOptions
-): Promise<void> => {
+function buildHtml(options: GenerateReportOptions): string {
   const { customer, transactions, periodLabel } = options;
-  const currentOverallBalance = calculateCustomerBalance(transactions);
+  const balance = calculateCustomerBalance(transactions);
 
-  // Sort chronological for ledger table
   const sortedTx = [...transactions].sort((a, b) =>
     a.transaction_date.localeCompare(b.transaction_date)
   );
 
   let periodGiven = 0;
   let periodGot = 0;
-  let runningBal = 0;
+  let running = 0;
 
-  const rowsWithBalance = sortedTx.map((tx, idx) => {
-    const amt = Number(tx.amount) || 0;
-    const isGave = tx.transaction_type === 'you_gave';
-    if (isGave) {
-      periodGiven += amt;
-      runningBal += amt;
-    } else {
-      periodGot += amt;
-      runningBal -= amt;
-    }
+  const tableRows = sortedTx
+    .map((tx, i) => {
+      const amt = Number(tx.amount) || 0;
+      const isGave = tx.transaction_type === 'you_gave';
+      if (isGave) { periodGiven += amt; running += amt; }
+      else { periodGot += amt; running -= amt; }
 
-    const typeColor = isGave ? '#DC2626' : '#16A34A';
-    const typeBg = isGave ? '#FEE2E2' : '#DCFCE7';
-    const typeLabel = isGave ? '↑ Given' : '↓ Received';
-    const formattedAmt = (isGave ? '+ ' : '- ') + formatCurrency(amt, true);
-    const balanceStr =
-      runningBal > 0
-        ? `${formatCurrency(runningBal, true)} Dr`
-        : runningBal < 0
-        ? `${formatCurrency(Math.abs(runningBal), true)} Cr`
+      const typeBadge = isGave
+        ? `<span class="badge badge-given">&#8593; Given</span>`
+        : `<span class="badge badge-received">&#8595; Received</span>`;
+      const amtStr = (isGave ? '+ ' : '- ') + formatCurrency(amt, true);
+      const amtColor = isGave ? '#DC2626' : '#16A34A';
+      const balStr = running > 0
+        ? formatCurrency(running, true)
+        : running < 0
+        ? `${formatCurrency(Math.abs(running), true)}`
         : '₹0.00';
+      const desc = tx.note || (isGave ? 'Maine Diye' : 'Mujhe Mile');
+      const rowBg = i % 2 === 0 ? '#FFFFFF' : '#F9FAFB';
 
-    return `
-      <tr style="border-bottom: 1px solid #E2E8F0; background-color: ${
-        idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA'
-      };">
-        <td style="padding: 11px 12px; font-size: 12px; font-weight: 600; color: #64748B;">${idx + 1}</td>
-        <td style="padding: 11px 12px; font-size: 13px; color: #1E293B; font-weight: 500;">${formatDate(
-          tx.transaction_date
-        )}</td>
-        <td style="padding: 11px 12px; font-size: 13px; color: #334155;">${tx.note || 'Ledger entry'}</td>
-        <td style="padding: 11px 12px; text-align: center;">
-          <span style="display: inline-block; padding: 4px 10px; border-radius: 9999px; background-color: ${typeBg}; color: ${typeColor}; font-size: 11px; font-weight: 700; letter-spacing: 0.3px;">
-            ${typeLabel}
-          </span>
-        </td>
-        <td style="padding: 11px 12px; font-size: 13px; font-weight: 800; text-align: right; color: ${typeColor};">
-          ${formattedAmt}
-        </td>
-        <td style="padding: 11px 12px; font-size: 13px; font-weight: 700; text-align: right; color: #0F172A;">
-          ${balanceStr}
-        </td>
-      </tr>
-    `;
-  });
+      return `
+        <tr style="background:${rowBg};">
+          <td class="tc">${i + 1}</td>
+          <td>${formatDate(tx.transaction_date)}</td>
+          <td>${desc}</td>
+          <td class="tc">${typeBadge}</td>
+          <td class="tr" style="color:${amtColor};font-weight:800;">${amtStr}</td>
+          <td class="tr" style="font-weight:700;">${balStr}</td>
+        </tr>`;
+    })
+    .join('');
 
-  const isLenaHai = currentOverallBalance.status === 'lena_hai';
-  const isDenaHai = currentOverallBalance.status === 'dena_hai';
-  const bannerBg = '#FFF7ED';
-  const bannerBorder = '#FED7AA';
-  const bannerAccent = '#EA580C';
+  const emptyRow = `<tr><td colspan="6" class="tc" style="padding:28px;color:#94A3B8;">No transactions recorded in this period.</td></tr>`;
 
-  const balanceHeading = isLenaHai
-    ? 'Amount to be received from ' + customer.name
-    : isDenaHai
-    ? 'Amount to be paid to ' + customer.name
-    : 'Account is completely settled';
+  const isLena = balance.status === 'lena_hai';
+  const isDena = balance.status === 'dena_hai';
+  const balAmt = formatCurrency(balance.displayAmount, true);
+  const balWords = numberToWordsIndian(balance.displayAmount);
+  const initials = (customer.name || 'C').charAt(0).toUpperCase();
+  const now = new Date();
+  const generatedOn = formatDate(now.toISOString()) + ', ' +
+    now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-  const balanceWords = numberToWordsIndian(currentOverallBalance.displayAmount);
-  const initialLetter = (customer.name || 'C').charAt(0).toUpperCase();
-  const currentDateStr = formatDate(new Date().toISOString());
+  const outstandingDesc = isLena
+    ? `Amount to be received from ${customer.name}`
+    : isDena
+    ? `Amount to be paid to ${customer.name}`
+    : 'Account fully settled';
+  const receiveTitle = isLena ? 'Amount to be Received' : isDena ? 'Amount to be Paid' : 'Balance';
+  const receiveSub = isLena
+    ? `${customer.name} needs to pay you the following amount`
+    : isDena
+    ? `You need to pay the following amount`
+    : 'Account is settled at zero';
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>HisabPro Statement - ${customer.name}</title>
-        <style>
-          * {
-            box-sizing: border-box;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            color: #0F172A;
-            margin: 0;
-            padding: 28px 32px;
-            background-color: #FFFFFF;
-          }
-          @media print {
-            body {
-              padding: 14px 18px;
-            }
-            .web-only-toolbar {
-              display: none !important;
-            }
-          }
-          .web-only-toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: #0B0F11;
-            padding: 12px 18px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-          }
-          .web-title {
-            color: #FFFFFF;
-            font-size: 13px;
-            font-weight: 800;
-          }
-          .web-btn-group {
-            display: flex;
-            gap: 8px;
-          }
-          .web-btn-print {
-            background-color: #FF7A00;
-            color: #0B0F11;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-weight: 800;
-            cursor: pointer;
-            font-size: 12px;
-          }
-          .web-btn-close {
-            background-color: #242220;
-            color: #FFFFFF;
-            border: 1px solid #475569;
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 12px;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #F1F5F9;
-            margin-bottom: 20px;
-          }
-          .brand-logo {
-            font-size: 26px;
-            font-weight: 900;
-            color: #0B0F11;
-            letter-spacing: -0.5px;
-          }
-          .brand-orange {
-            color: #FF7A00;
-          }
-          .brand-tagline {
-            font-size: 11px;
-            font-weight: 700;
-            color: #64748B;
-            letter-spacing: 0.8px;
-            margin-top: 4px;
-            text-transform: uppercase;
-          }
-          .header-right {
-            text-align: right;
-          }
-          .statement-title {
-            font-size: 22px;
-            font-weight: 800;
-            color: #0F172A;
-          }
-          .statement-sub {
-            font-size: 12px;
-            color: #64748B;
-            margin-top: 2px;
-          }
-          .customer-details-card {
-            background-color: #F8FAFC;
-            border: 1px solid #E2E8F0;
-            border-radius: 14px;
-            padding: 16px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 18px;
-          }
-          .customer-left {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-          }
-          .avatar-circle {
-            width: 44px;
-            height: 44px;
-            border-radius: 22px;
-            background-color: #242220;
-            color: #FF7A00;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            font-weight: 800;
-          }
-          .customer-name {
-            font-size: 18px;
-            font-weight: 800;
-            color: #0F172A;
-          }
-          .customer-phone {
-            font-size: 13px;
-            color: #64748B;
-            margin-top: 2px;
-            font-weight: 600;
-          }
-          .meta-right {
-            text-align: right;
-            font-size: 12px;
-            color: #475569;
-            line-height: 1.6;
-          }
-          .meta-row {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 6px;
-          }
-          .summary-grid {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 18px;
-          }
-          .summary-card {
-            flex: 1;
-            padding: 14px 16px;
-            border-radius: 12px;
-            background-color: #F8FAFC;
-            border: 1px solid #E2E8F0;
-          }
-          .summary-label {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            color: #64748B;
-          }
-          .summary-val {
-            font-size: 20px;
-            font-weight: 900;
-            margin-top: 4px;
-          }
-          .outstanding-banner {
-            background-color: ${bannerBg};
-            border: 1.5px solid ${bannerBorder};
-            border-radius: 14px;
-            padding: 16px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-          }
-          .outstanding-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-          }
-          .wallet-icon-box {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
-            background-color: rgba(255, 122, 0, 0.18);
-            color: #EA580C;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-          }
-          .outstanding-title {
-            font-size: 15px;
-            font-weight: 800;
-            color: #9A3412;
-          }
-          .outstanding-desc {
-            font-size: 12px;
-            color: #C2410C;
-            margin-top: 2px;
-          }
-          .outstanding-amount {
-            font-size: 26px;
-            font-weight: 900;
-            color: ${bannerAccent};
-          }
-          .table-title {
-            font-size: 13px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            color: #475569;
-            margin-bottom: 8px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            border-radius: 10px;
-            overflow: hidden;
-            border: 1px solid #E2E8F0;
-            margin-bottom: 22px;
-          }
-          th {
-            background-color: #0B0F11;
-            color: #FFFFFF;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 12px;
-            text-align: left;
-          }
-          th.right {
-            text-align: right;
-          }
-          th.center {
-            text-align: center;
-          }
-          .amount-words-card {
-            background-color: #FFF7ED;
-            border: 1px solid #FED7AA;
-            border-radius: 12px;
-            padding: 14px 18px;
-            margin-bottom: 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-          }
-          .words-label {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: #9A3412;
-          }
-          .words-value {
-            font-size: 13px;
-            font-weight: 700;
-            color: #C2410C;
-            margin-top: 2px;
-            font-style: italic;
-          }
-          .words-amount {
-            font-size: 22px;
-            font-weight: 900;
-            color: #EA580C;
-          }
-          .footer-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-top: 16px;
-            border-top: 1px dashed #CBD5E1;
-            margin-top: 16px;
-          }
-          .notes-box {
-            flex: 1;
-            font-size: 11px;
-            color: #64748B;
-            line-height: 1.7;
-            padding-right: 20px;
-          }
-          .notes-title {
-            font-weight: 700;
-            color: #334155;
-            margin-bottom: 2px;
-            text-transform: uppercase;
-          }
-          .qr-box {
-            text-align: center;
-            background: #FFFFFF;
-            border: 1px solid #E2E8F0;
-            border-radius: 12px;
-            padding: 8px;
-          }
-          .qr-label {
-            font-size: 9px;
-            font-weight: 700;
-            color: #64748B;
-            margin-top: 4px;
-            text-transform: uppercase;
-          }
-          .bottom-bar {
-            background-color: #0B0F11;
-            color: #FFFFFF;
-            padding: 12px 18px;
-            border-radius: 8px;
-            margin-top: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 11px;
-          }
-          .bottom-left {
-            font-weight: 700;
-            letter-spacing: 0.3px;
-          }
-          .bottom-right {
-            color: #94A3B8;
-            font-weight: 600;
-          }
-        </style>
-      </head>
-      <body>
-        <!-- Web Only Toolbar -->
-        <div class="web-only-toolbar">
-          <div class="web-title">HISAB<span style="color:#FF7A00">PRO</span> Statement Preview</div>
-          <div class="web-btn-group">
-            <button class="web-btn-print" onclick="window.print()">🖨️ Save as PDF / Print</button>
-            <button class="web-btn-close" onclick="window.close()">✕ Close</button>
-          </div>
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>HisabPro Statement – ${customer.name}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#F1F5F9;color:#0F172A;padding:20px;}
+@media print{
+  body{background:#FFFFFF;padding:0;}
+  .no-print{display:none!important;}
+  .page{box-shadow:none;border-radius:0;margin:0;max-width:100%;}
+}
+.no-print{
+  background:#0B0F11;padding:12px 16px;border-radius:10px;margin-bottom:16px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.no-print-title{color:#FFFFFF;font-size:13px;font-weight:700;}
+.no-print-title span{color:#FF7A00;}
+.btn-print{background:#FF7A00;color:#0B0F11;border:none;padding:8px 16px;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer;}
+.page{background:#FFFFFF;max-width:760px;margin:0 auto;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);}
+
+/* ── Dark Header ── */
+.hdr{background:#0B0F11;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;}
+.hdr-left{display:flex;align-items:center;gap:14px;}
+.logo-box{width:44px;height:44px;background:#FF7A00;border-radius:12px;display:flex;align-items:center;justify-content:center;}
+.logo-box svg{width:28px;height:28px;}
+.brand-name{font-size:22px;font-weight:900;color:#FFFFFF;letter-spacing:-0.5px;}
+.brand-name span{color:#FF7A00;}
+.brand-tag{font-size:10px;color:#94A3B8;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;margin-top:2px;}
+.hdr-right{text-align:right;}
+.hdr-title{font-size:22px;font-weight:900;color:#FFFFFF;}
+.hdr-title span{color:#FF7A00;}
+.hdr-sub{font-size:11px;color:#94A3B8;margin-top:3px;}
+
+/* ── Body Padding ── */
+.body-pad{padding:20px 24px;}
+
+/* ── Customer Card ── */
+.customer-card{background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.cust-left{display:flex;align-items:center;gap:14px;}
+.avatar{width:52px;height:52px;border-radius:50%;background:#FF7A00;color:#FFFFFF;font-size:22px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.cust-label{font-size:11px;color:#94A3B8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
+.cust-name{font-size:22px;font-weight:900;color:#0F172A;line-height:1.2;}
+.cust-phone{font-size:13px;color:#64748B;margin-top:4px;display:flex;align-items:center;gap:5px;font-weight:600;}
+.cust-right{text-align:right;}
+.meta-row{font-size:12px;color:#475569;margin-bottom:6px;display:flex;align-items:center;justify-content:flex-end;gap:6px;}
+.meta-row strong{color:#0F172A;}
+
+/* ── Summary Cards ── */
+.summary-grid{display:flex;gap:12px;margin-bottom:16px;}
+.s-card{flex:1;border-radius:12px;padding:14px 16px;}
+.s-card.given{background:#FEF2F2;border:1px solid #FECACA;}
+.s-card.received{background:#F0FDF4;border:1px solid #BBF7D0;}
+.s-card.entries{background:#F8FAFC;border:1px solid #E2E8F0;}
+.s-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;font-size:16px;}
+.s-icon.red{background:#EF4444;}
+.s-icon.green{background:#22C55E;}
+.s-icon.gray{background:#E2E8F0;}
+.s-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;}
+.s-amount{font-size:20px;font-weight:900;margin-top:4px;}
+.s-sub{font-size:11px;color:#94A3B8;margin-top:2px;}
+
+/* ── Outstanding Banner ── */
+.outstanding{background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:14px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.out-left{display:flex;align-items:center;gap:14px;}
+.out-icon{width:42px;height:42px;background:#FF7A00;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.out-title{font-size:15px;font-weight:900;color:#7C2D12;}
+.out-sub{font-size:12px;color:#C2410C;margin-top:3px;}
+.out-amount{font-size:28px;font-weight:900;color:#FF7A00;}
+
+/* ── Transaction Table ── */
+.table-title{font-size:15px;font-weight:900;color:#0F172A;margin-bottom:10px;}
+.table-title span{color:#FF7A00;}
+table{width:100%;border-collapse:collapse;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;margin-bottom:20px;}
+thead tr{background:#0B0F11;}
+th{color:#FFFFFF;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:12px 14px;text-align:left;}
+td{padding:12px 14px;font-size:13px;color:#334155;border-bottom:1px solid #F1F5F9;}
+tr:last-child td{border-bottom:none;}
+.tc{text-align:center;}
+.tr{text-align:right;}
+.badge{display:inline-block;padding:4px 10px;border-radius:9999px;font-size:11px;font-weight:700;letter-spacing:0.3px;}
+.badge-given{background:#FEE2E2;color:#DC2626;}
+.badge-received{background:#DCFCE7;color:#16A34A;}
+
+/* ── Receive Banner ── */
+.receive-card{background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:14px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.rec-left{display:flex;align-items:center;gap:14px;}
+.rec-icon{width:42px;height:42px;background:#FF7A00;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.rec-title{font-size:15px;font-weight:900;color:#7C2D12;}
+.rec-sub{font-size:12px;color:#C2410C;margin-top:3px;}
+.rec-right{text-align:right;}
+.rec-amount{font-size:26px;font-weight:900;color:#FF7A00;}
+.rec-words{font-size:11px;color:#C2410C;font-style:italic;margin-top:4px;}
+
+/* ── Footer ── */
+.footer-row{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:20px;padding-top:16px;border-top:1px dashed #CBD5E1;}
+.note-box{flex:1;}
+.note-title{font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:flex;align-items:center;gap:5px;}
+.note-item{font-size:11px;color:#64748B;line-height:1.7;}
+.qr-col{text-align:center;}
+.qr-wrap{width:90px;height:90px;border:2px solid #E2E8F0;border-radius:12px;padding:6px;background:#FFFFFF;display:flex;align-items:center;justify-content:center;}
+.qr-label{font-size:10px;font-weight:700;color:#0F172A;margin-top:6px;}
+.qr-sub{font-size:10px;color:#64748B;margin-top:2px;line-height:1.4;max-width:90px;}
+.qr-app{color:#FF7A00;font-weight:800;}
+
+/* ── Dark Bottom Bar ── */
+.bottom-bar{background:#0B0F11;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;}
+.bb-left{display:flex;align-items:center;gap:12px;}
+.bb-logo-box{width:32px;height:32px;background:#FF7A00;border-radius:8px;display:flex;align-items:center;justify-content:center;}
+.bb-brand{font-size:14px;font-weight:900;color:#FFFFFF;}
+.bb-brand span{color:#FF7A00;}
+.bb-tag{font-size:10px;color:#64748B;letter-spacing:0.5px;text-transform:uppercase;}
+.bb-right{border:1px solid #334155;padding:6px 14px;border-radius:9999px;display:flex;align-items:center;gap:6px;}
+.bb-url{font-size:12px;color:#94A3B8;font-weight:600;}
+</style>
+</head>
+<body>
+
+<!-- Web toolbar (hidden on print) -->
+<div class="no-print">
+  <div class="no-print-title">&#128196; <span>HISAB</span>PRO &nbsp;Statement Preview</div>
+  <button class="btn-print" onclick="window.print()">&#128424; Save as PDF / Print</button>
+</div>
+
+<div class="page">
+
+  <!-- Dark Header -->
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="logo-box">
+        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 4L14 4L14 14L4 14Z" fill="white" fill-opacity="0.3"/>
+          <path d="M14 14L24 4L24 24L14 24Z" fill="white"/>
+          <path d="M4 14L14 24L4 24Z" fill="white" fill-opacity="0.6"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">Hisab<span>Pro</span></div>
+        <div class="brand-tag">Simple Accounts. Better Business.</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="hdr-title">Account <span>Statement</span></div>
+      <div class="hdr-sub">Your transactions at a glance</div>
+    </div>
+  </div>
+
+  <div class="body-pad">
+
+    <!-- Customer Card -->
+    <div class="customer-card">
+      <div class="cust-left">
+        <div class="avatar">${initials}</div>
+        <div>
+          <div class="cust-label">Customer</div>
+          <div class="cust-name">${customer.name}</div>
+          ${customer.phone ? `<div class="cust-phone"><span>&#128222;</span> ${customer.phone}</div>` : ''}
         </div>
-
-        <!-- Header -->
-        <div class="header">
-          <div>
-            <div class="brand-logo">HISAB<span class="brand-orange">PRO</span></div>
-            <div class="brand-tagline">Simple Accounts. Better Business.</div>
-          </div>
-          <div class="header-right">
-            <div class="statement-title">Account Statement</div>
-            <div class="statement-sub">Your transactions at a glance</div>
-          </div>
+      </div>
+      <div class="cust-right">
+        <div class="meta-row">
+          <span>&#128197;</span>
+          <div><div style="font-size:10px;color:#94A3B8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Statement Period</div>
+          <strong>${periodLabel}</strong></div>
         </div>
-
-        <!-- Customer & Statement Period Card -->
-        <div class="customer-details-card">
-          <div class="customer-left">
-            <div class="avatar-circle">${initialLetter}</div>
-            <div>
-              <div class="customer-name">${customer.name}</div>
-              <div class="customer-phone">${
-                customer.phone ? '📞 ' + customer.phone : 'No phone registered'
-              }</div>
-            </div>
-          </div>
-          <div class="meta-right">
-            <div class="meta-row"><strong>Period:</strong> ${periodLabel}</div>
-            <div class="meta-row"><strong>Generated:</strong> ${currentDateStr}</div>
-            <div class="meta-row"><strong>Status:</strong> ${
-              isLenaHai ? 'To Receive' : isDenaHai ? 'To Pay' : 'Settled'
-            }</div>
-          </div>
+        <div class="meta-row">
+          <span>&#128203;</span>
+          <div><div style="font-size:10px;color:#94A3B8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Generated On</div>
+          <strong>${generatedOn}</strong></div>
         </div>
+      </div>
+    </div>
 
-        <!-- 3 Summary Metric Cards -->
-        <div class="summary-grid">
-          <div class="summary-card">
-            <div class="summary-label">Total Given</div>
-            <div class="summary-val" style="color: #DC2626;">${formatCurrency(periodGiven, true)}</div>
-          </div>
-          <div class="summary-card">
-            <div class="summary-label">Total Received</div>
-            <div class="summary-val" style="color: #16A34A;">${formatCurrency(periodGot, true)}</div>
-          </div>
-          <div class="summary-card">
-            <div class="summary-label">Total Entries</div>
-            <div class="summary-val" style="color: #0F172A;">${transactions.length}</div>
-          </div>
+    <!-- 3 Summary Cards -->
+    <div class="summary-grid">
+      <div class="s-card given">
+        <div class="s-icon red" style="color:#FFF;font-size:14px;font-weight:900;">&#8593;</div>
+        <div class="s-label">Total Given</div>
+        <div class="s-amount" style="color:#DC2626;">${formatCurrency(periodGiven, true)}</div>
+        <div class="s-sub">Total amount you gave</div>
+      </div>
+      <div class="s-card received">
+        <div class="s-icon green" style="color:#FFF;font-size:14px;font-weight:900;">&#8595;</div>
+        <div class="s-label">Total Received</div>
+        <div class="s-amount" style="color:#16A34A;">${formatCurrency(periodGot, true)}</div>
+        <div class="s-sub">Total amount received</div>
+      </div>
+      <div class="s-card entries">
+        <div class="s-icon gray" style="font-size:14px;">&#128203;</div>
+        <div class="s-label">Total Entries</div>
+        <div class="s-amount" style="color:#0F172A;">${transactions.length}</div>
+        <div class="s-sub">Total transactions</div>
+      </div>
+    </div>
+
+    <!-- Outstanding Balance Banner -->
+    <div class="outstanding">
+      <div class="out-left">
+        <div class="out-icon">&#128178;</div>
+        <div>
+          <div class="out-title">Outstanding Balance</div>
+          <div class="out-sub">${outstandingDesc}</div>
         </div>
+      </div>
+      <div class="out-amount">${balAmt}</div>
+    </div>
 
-        <!-- Outstanding Balance Banner -->
-        <div class="outstanding-banner">
-          <div class="outstanding-left">
-            <div class="wallet-icon-box">₹</div>
-            <div>
-              <div class="outstanding-title">Outstanding Balance</div>
-              <div class="outstanding-desc">${balanceHeading}</div>
-            </div>
-          </div>
-          <div class="outstanding-amount">
-            ${formatCurrency(currentOverallBalance.displayAmount, true)}
-          </div>
+    <!-- Transaction Table -->
+    <div class="table-title">Transaction <span>Details</span></div>
+    <table>
+      <thead>
+        <tr>
+          <th class="tc" style="width:5%;">#</th>
+          <th style="width:16%;">Date</th>
+          <th style="width:30%;">Description</th>
+          <th class="tc" style="width:17%;">Type</th>
+          <th class="tr" style="width:16%;">Amount</th>
+          <th class="tr" style="width:16%;">Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRows.length ? tableRows : emptyRow}
+      </tbody>
+    </table>
+
+    <!-- Amount to be Received/Paid Card -->
+    <div class="receive-card">
+      <div class="rec-left">
+        <div class="rec-icon">&#129689;</div>
+        <div>
+          <div class="rec-title">${receiveTitle}</div>
+          <div class="rec-sub">${receiveSub}</div>
         </div>
+      </div>
+      <div class="rec-right">
+        <div class="rec-amount">${balAmt}</div>
+        <div class="rec-words">(${balWords})</div>
+      </div>
+    </div>
 
-        <!-- Transaction Details Table -->
-        <div class="table-title">Transaction Details (${transactions.length})</div>
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 6%;">#</th>
-              <th style="width: 17%;">Date</th>
-              <th style="width: 31%;">Description</th>
-              <th class="center" style="width: 16%;">Type</th>
-              <th class="right" style="width: 15%;">Amount</th>
-              <th class="right" style="width: 15%;">Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              rowsWithBalance.length > 0
-                ? rowsWithBalance.join('')
-                : '<tr><td colspan="6" style="text-align: center; padding: 26px; color: #64748B;">No transactions recorded in this period.</td></tr>'
-            }
-          </tbody>
-        </table>
-
-        <!-- Amount to be Received / Paid Words Box -->
-        <div class="amount-words-card">
-          <div>
-            <div class="words-label">${
-              isLenaHai
-                ? 'Amount to be Received'
-                : isDenaHai
-                ? 'Amount to be Paid'
-                : 'Settled Amount'
-            }</div>
-            <div class="words-value">(${balanceWords})</div>
-          </div>
-          <div class="words-amount">
-            ${formatCurrency(currentOverallBalance.displayAmount, true)}
-          </div>
+    <!-- Footer: Notes + QR -->
+    <div class="footer-row">
+      <div class="note-box">
+        <div class="note-title">&#8505; Note</div>
+        <div class="note-item">• This is a system generated statement from HisabPro.</div>
+        <div class="note-item">• All amounts are in Indian Rupees (₹).</div>
+        <div class="note-item">• For any queries, please contact us.</div>
+      </div>
+      <div class="qr-col">
+        <div class="qr-wrap">
+          <svg width="70" height="70" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="6" fill="#FFFFFF"/>
+            <rect x="8" y="8" width="28" height="28" rx="4" fill="#0B0F11"/>
+            <rect x="12" y="12" width="20" height="20" rx="2" fill="#FFFFFF"/>
+            <rect x="16" y="16" width="12" height="12" rx="1" fill="#FF7A00"/>
+            <rect x="64" y="8" width="28" height="28" rx="4" fill="#0B0F11"/>
+            <rect x="68" y="12" width="20" height="20" rx="2" fill="#FFFFFF"/>
+            <rect x="72" y="16" width="12" height="12" rx="1" fill="#FF7A00"/>
+            <rect x="8" y="64" width="28" height="28" rx="4" fill="#0B0F11"/>
+            <rect x="12" y="68" width="20" height="20" rx="2" fill="#FFFFFF"/>
+            <rect x="16" y="72" width="12" height="12" rx="1" fill="#FF7A00"/>
+            <rect x="42" y="10" width="6" height="6" fill="#0B0F11"/>
+            <rect x="52" y="10" width="6" height="6" fill="#0B0F11"/>
+            <rect x="44" y="22" width="6" height="6" fill="#0B0F11"/>
+            <rect x="10" y="42" width="6" height="6" fill="#0B0F11"/>
+            <rect x="22" y="44" width="6" height="6" fill="#0B0F11"/>
+            <rect x="38" y="38" width="10" height="10" rx="2" fill="#FF7A00"/>
+            <rect x="52" y="38" width="10" height="10" rx="2" fill="#0B0F11"/>
+            <rect x="64" y="44" width="6" height="6" fill="#0B0F11"/>
+            <rect x="76" y="42" width="6" height="6" fill="#0B0F11"/>
+            <rect x="86" y="44" width="6" height="6" fill="#0B0F11"/>
+            <rect x="38" y="52" width="10" height="10" rx="2" fill="#0B0F11"/>
+            <rect x="52" y="52" width="10" height="10" rx="2" fill="#FF7A00"/>
+            <rect x="64" y="56" width="6" height="6" fill="#0B0F11"/>
+            <rect x="42" y="68" width="6" height="6" fill="#0B0F11"/>
+            <rect x="54" y="68" width="6" height="6" fill="#0B0F11"/>
+            <rect x="66" y="68" width="6" height="6" fill="#0B0F11"/>
+            <rect x="78" y="68" width="6" height="6" fill="#0B0F11"/>
+            <rect x="86" y="78" width="6" height="6" fill="#0B0F11"/>
+            <rect x="44" y="82" width="6" height="6" fill="#0B0F11"/>
+            <rect x="56" y="82" width="6" height="6" fill="#0B0F11"/>
+            <rect x="70" y="82" width="6" height="6" fill="#0B0F11"/>
+          </svg>
         </div>
+        <div class="qr-label">Scan to get</div>
+        <div class="qr-sub"><span class="qr-app">HisabPro App</span><br>Track your customers, expenses and grow your business.</div>
+      </div>
+    </div>
 
-        <!-- Footer / Instructions & QR Code -->
-        <div class="footer-section">
-          <div class="notes-box">
-            <div class="notes-title">Important Terms & Notes:</div>
-            <div>• This is a computer-generated account statement and does not require a physical signature.</div>
-            <div>• Please report any discrepancy within 7 business days of statement issuance.</div>
-            <div>• Keep this statement for your financial records and tax bookkeeping.</div>
-          </div>
-          <div class="qr-box">
-            ${QR_CODE_SVG}
-            <div class="qr-label">Scan to get App</div>
-          </div>
-        </div>
+  </div><!-- /body-pad -->
 
-        <!-- Dark Bottom Bar -->
-        <div class="bottom-bar">
-          <div class="bottom-left">HISAB<span style="color:#FF7A00">PRO</span> • SIMPLE ACCOUNTS. BETTER BUSINESS.</div>
-          <div class="bottom-right">www.hisabpro.in</div>
-        </div>
-      </body>
-    </html>
-  `;
+  <!-- Dark Bottom Bar -->
+  <div class="bottom-bar">
+    <div class="bb-left">
+      <div class="bb-logo-box">
+        <svg viewBox="0 0 28 28" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 4L14 4L14 14L4 14Z" fill="white" fill-opacity="0.3"/>
+          <path d="M14 14L24 4L24 24L14 24Z" fill="white"/>
+          <path d="M4 14L14 24L4 24Z" fill="white" fill-opacity="0.6"/>
+        </svg>
+      </div>
+      <div>
+        <div class="bb-brand">Hisab<span>Pro</span></div>
+        <div class="bb-tag">Simple Accounts. Better Business.</div>
+      </div>
+    </div>
+    <div class="bb-right">
+      <span style="color:#FF7A00;font-size:13px;">&#127760;</span>
+      <span class="bb-url">www.hisabpro.in</span>
+    </div>
+  </div>
 
-  // On Web: use direct download + print window
-  if (Platform.OS === 'web') {
-    await generateAndDownloadPdfOnWeb(html, customer.name);
+</div><!-- /page -->
+</body>
+</html>`;
+}
+
+// ─── Web: open print window (works as "Save as PDF" in Chrome) ───────────────
+
+async function webPrintPdf(html: string): Promise<void> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+  // Open a new blank tab, inject the styled HTML, then trigger print
+  const w = window.open('', '_blank');
+  if (!w) {
+    // If popup blocked, use hidden iframe fallback
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow?.document ?? iframe.contentDocument;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+      setTimeout(() => {
+        iframe.contentWindow?.print();
+        setTimeout(() => document.body.removeChild(iframe), 3000);
+      }, 600);
+    }
     return;
   }
 
-  // On Mobile: use native Print & Sharing modules
-  const { uri } = await Print.printToFileAsync({ html });
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  // Delay to let CSS and fonts load
+  setTimeout(() => w.print(), 800);
+}
+
+// ─── Main PDF generator ──────────────────────────────────────────────────────
+
+export const generateAndShareCustomerReportPdf = async (
+  options: GenerateReportOptions
+): Promise<void> => {
+  const html = buildHtml(options);
+
+  if (Platform.OS === 'web') {
+    await webPrintPdf(html);
+    return;
+  }
+
+  // Mobile: print to file then share
+  const { uri } = await Print.printToFileAsync({ html, base64: false });
 
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(uri, {
       UTI: '.pdf',
       mimeType: 'application/pdf',
-      dialogTitle: `HisabPro Statement - ${customer.name}`,
+      dialogTitle: `HisabPro Statement – ${options.customer.name}`,
     });
   }
 };
 
-/**
- * Generate formatted WhatsApp message matching statement details
- */
+// ─── WhatsApp text report ─────────────────────────────────────────────────────
+
 export const generatePlainTextReport = (options: GenerateReportOptions): string => {
   const { customer, transactions, periodLabel } = options;
-  const currentOverallBalance = calculateCustomerBalance(transactions);
+  const balance = calculateCustomerBalance(transactions);
 
   let periodGiven = 0;
   let periodGot = 0;
   for (const tx of transactions) {
     const amt = Number(tx.amount) || 0;
-    if (tx.transaction_type === 'you_gave') {
-      periodGiven += amt;
-    } else {
-      periodGot += amt;
-    }
+    if (tx.transaction_type === 'you_gave') periodGiven += amt;
+    else periodGot += amt;
   }
 
-  const isLenaHai = currentOverallBalance.status === 'lena_hai';
-  const isDenaHai = currentOverallBalance.status === 'dena_hai';
-  const statusLabel = isLenaHai ? 'To Receive' : isDenaHai ? 'To Pay' : 'Settled';
-  const balanceWords = numberToWordsIndian(currentOverallBalance.displayAmount);
+  const isLena = balance.status === 'lena_hai';
+  const isDena = balance.status === 'dena_hai';
+  const statusLabel = isLena ? 'To Receive' : isDena ? 'To Pay' : 'Settled';
+  const balWords = numberToWordsIndian(balance.displayAmount);
 
-  let text = `📊 *HISABPRO ACCOUNT STATEMENT*\n`;
-  text += `━━━━━━━━━━━━━━━━━━━━\n`;
-  text += `👤 *Customer:* ${customer.name}\n`;
-  if (customer.phone) text += `📞 *Phone:* ${customer.phone}\n`;
-  text += `📅 *Period:* ${periodLabel}\n`;
-  text += `⏰ *Generated On:* ${formatDate(new Date().toISOString())}\n`;
-  text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-  text += `💰 *SUMMARY*\n`;
-  text += `🔴 *Total Given:* ${formatCurrency(periodGiven, true)}\n`;
-  text += `🟢 *Total Received:* ${formatCurrency(periodGot, true)}\n`;
-  text += `📝 *Total Entries:* ${transactions.length}\n\n`;
-
-  text += `━━━━━━━━━━━━━━━━━━━━\n`;
-  text += `⚖️ *OUTSTANDING BALANCE*\n`;
-  text += `👉 *${formatCurrency(currentOverallBalance.displayAmount, true)} (${statusLabel})*\n`;
-  text += `_${balanceWords}_\n`;
-  text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+  let t = `📊 *HISABPRO ACCOUNT STATEMENT*\n`;
+  t += `━━━━━━━━━━━━━━━━━━━━\n`;
+  t += `👤 *Customer:* ${customer.name}\n`;
+  if (customer.phone) t += `📞 *Phone:* ${customer.phone}\n`;
+  t += `📅 *Period:* ${periodLabel}\n`;
+  t += `⏰ *Generated On:* ${formatDate(new Date().toISOString())}\n`;
+  t += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+  t += `💰 *SUMMARY*\n`;
+  t += `🔴 *Total Given:* ${formatCurrency(periodGiven, true)}\n`;
+  t += `🟢 *Total Received:* ${formatCurrency(periodGot, true)}\n`;
+  t += `📝 *Total Entries:* ${transactions.length}\n\n`;
+  t += `━━━━━━━━━━━━━━━━━━━━\n`;
+  t += `⚖️ *OUTSTANDING BALANCE*\n`;
+  t += `👉 *${formatCurrency(balance.displayAmount, true)} (${statusLabel})*\n`;
+  t += `_${balWords}_\n`;
+  t += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
   if (transactions.length > 0) {
-    text += `📋 *TRANSACTION DETAILS:*\n`;
-    const recent = transactions.slice(0, 8);
-    recent.forEach((tx, i) => {
+    t += `📋 *TRANSACTION DETAILS:*\n`;
+    const sorted = [...transactions]
+      .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date))
+      .slice(0, 10);
+    sorted.forEach((tx, i) => {
       const isGave = tx.transaction_type === 'you_gave';
       const icon = isGave ? '🔴 Given' : '🟢 Received';
-      text += `${i + 1}. ${formatDate(tx.transaction_date)} | ${icon} | ${formatCurrency(
-        tx.amount,
-        true
-      )}${tx.note ? `\n   Note: ${tx.note}` : ''}\n`;
+      t += `${i + 1}. ${formatDate(tx.transaction_date)} | ${icon} | ${formatCurrency(tx.amount, true)}`;
+      if (tx.note) t += ` (${tx.note})`;
+      t += '\n';
     });
-    if (transactions.length > 8) {
-      text += `...and ${transactions.length - 8} more entries.\n`;
+    if (transactions.length > 10) {
+      t += `...and ${transactions.length - 10} more entries.\n`;
     }
   }
 
-  text += `\n━━━━━━━━━━━━━━━━━━━━\n`;
-  text += `_Generated via HisabPro • Simple Accounts. Better Business._\n`;
-  text += `_🌐 www.hisabpro.in_`;
-
-  return text;
+  t += `\n━━━━━━━━━━━━━━━━━━━━\n`;
+  t += `_Generated via HisabPro • Simple Accounts. Better Business._\n`;
+  t += `_🌐 www.hisabpro.in_`;
+  return t;
 };
