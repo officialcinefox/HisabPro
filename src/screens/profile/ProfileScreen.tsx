@@ -21,7 +21,7 @@ import { formatCurrency } from '../../utils/formatting';
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { profile, user, signOut } = useAuth();
-  const { themeMode, setThemeMode, colors, isDark } = useTheme();
+  const { setThemeMode, colors, isDark } = useTheme();
   const { customers, transactions, expenses, dashboardSummary } = useData();
 
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
@@ -34,12 +34,16 @@ export const ProfileScreen: React.FC = () => {
     setLogoutModalVisible(false);
   };
 
+  const toggleTheme = () => {
+    setThemeMode(isDark ? 'light' : 'dark');
+  };
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
     >
-      {/* Profile Card */}
+      {/* Profile Card with Quick Theme Toggle Icon in Upper Corner */}
       <Card style={styles.profileCard}>
         <View style={styles.profileHeader}>
           <View
@@ -64,6 +68,26 @@ export const ProfileScreen: React.FC = () => {
               </Text>
             ) : null}
           </View>
+
+          {/* Upper Corner Theme Toggle Icon: Sun in Dark Mode, Moon in Light Mode */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={toggleTheme}
+            style={[
+              styles.cornerThemeToggle,
+              {
+                backgroundColor: colors.cardElevated,
+                borderColor: colors.border,
+              },
+            ]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name={isDark ? 'sunny' : 'moon'}
+              size={20}
+              color={colors.primary}
+            />
+          </TouchableOpacity>
         </View>
 
         <Button
@@ -76,103 +100,8 @@ export const ProfileScreen: React.FC = () => {
         />
       </Card>
 
-      {/* Appearance Section with Sun & Moon Icons */}
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-        Appearance
-      </Text>
-      <Card style={styles.appearanceCard}>
-        <Text style={[styles.appearanceSub, { color: colors.textSecondary }]}>
-          Choose your visual preference. Switches immediately and persists on this
-          device.
-        </Text>
-
-        <View style={styles.themeOptionsRow}>
-          {/* Light Mode Option */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setThemeMode('light')}
-            style={[
-              styles.themeOptionBox,
-              {
-                backgroundColor: !isDark ? 'rgba(255, 122, 0, 0.12)' : colors.cardElevated,
-                borderColor: !isDark ? colors.primary : colors.border,
-                borderWidth: !isDark ? 2 : 1,
-              },
-            ]}
-          >
-            <Ionicons
-              name="sunny"
-              size={28}
-              color={!isDark ? colors.primary : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.themeOptionLabel,
-                {
-                  color: !isDark ? colors.primary : colors.textPrimary,
-                  fontWeight: !isDark ? '800' : '600',
-                },
-              ]}
-            >
-              ☀️ Light Mode
-            </Text>
-            {!isDark ? (
-              <View
-                style={[
-                  styles.activeCheckBadge,
-                  { backgroundColor: colors.primary },
-                ]}
-              >
-                <Ionicons name="checkmark" size={12} color="#0B0F11" />
-              </View>
-            ) : null}
-          </TouchableOpacity>
-
-          {/* Dark Mode Option */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setThemeMode('dark')}
-            style={[
-              styles.themeOptionBox,
-              {
-                backgroundColor: isDark ? 'rgba(255, 122, 0, 0.12)' : colors.cardElevated,
-                borderColor: isDark ? colors.primary : colors.border,
-                borderWidth: isDark ? 2 : 1,
-              },
-            ]}
-          >
-            <Ionicons
-              name="moon"
-              size={28}
-              color={isDark ? colors.primary : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.themeOptionLabel,
-                {
-                  color: isDark ? colors.primary : colors.textPrimary,
-                  fontWeight: isDark ? '800' : '600',
-                },
-              ]}
-            >
-              🌙 Dark Mode
-            </Text>
-            {isDark ? (
-              <View
-                style={[
-                  styles.activeCheckBadge,
-                  { backgroundColor: colors.primary },
-                ]}
-              >
-                <Ionicons name="checkmark" size={12} color="#0B0F11" />
-              </View>
-            ) : null}
-          </TouchableOpacity>
-        </View>
-      </Card>
-
       {/* Account Financial Statistics */}
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: 12 }]}>
+      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: 8 }]}>
         Account Summary Statistics
       </Text>
 
@@ -295,21 +224,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
+    position: 'relative',
   },
   avatarLarge: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   profileTextInfo: {
     flex: 1,
+    paddingRight: 8,
   },
   userName: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
   },
   userEmail: {
@@ -320,6 +251,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
+  cornerThemeToggle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   editBtn: {
     width: '100%',
   },
@@ -328,43 +267,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 10,
     letterSpacing: -0.2,
-  },
-  appearanceCard: {
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 16,
-  },
-  appearanceSub: {
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: 14,
-  },
-  themeOptionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  themeOptionBox: {
-    flex: 1,
-    paddingVertical: 18,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    gap: 8,
-  },
-  themeOptionLabel: {
-    fontSize: 13,
-  },
-  activeCheckBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   statsGrid: {
     flexDirection: 'row',

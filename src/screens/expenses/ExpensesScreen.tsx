@@ -233,9 +233,7 @@ export const ExpensesScreen: React.FC = () => {
           <EmptyState
             iconName="receipt-outline"
             title="No Expenses Recorded"
-            description="Keep your personal and shop spending in control by tracking expenses here."
-            actionLabel="Add Expense"
-            onAction={() => navigation.navigate('AddExpense')}
+            description="Tap '+ Add Expense' below to track personal and shop expenses."
           />
         }
       />

@@ -160,10 +160,8 @@ export const CustomersListScreen: React.FC = () => {
             description={
               searchQuery
                 ? 'Try a different customer name or phone number.'
-                : 'Tap the button below to add your first customer.'
+                : 'Tap "+ Add Customer" below to open a new ledger account.'
             }
-            actionLabel={searchQuery ? undefined : 'Add Customer'}
-            onAction={() => navigation.navigate('AddCustomer')}
           />
         }
       />

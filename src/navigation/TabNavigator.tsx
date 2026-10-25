@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../context/ThemeContext';
@@ -30,33 +30,34 @@ export const TabNavigator: React.FC = () => {
           color: colors.textPrimary,
         },
         headerTintColor: colors.textPrimary,
+        tabBarShowLabel: false, // Removed labels to prevent text cut-off
         tabBarStyle: {
           backgroundColor: colors.tabBarBackground,
           borderTopColor: colors.tabBarBorder,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 86 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-          paddingTop: 8,
+          height: Platform.OS === 'ios' ? 78 : 58,
+          paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+          paddingTop: 0,
           elevation: 8,
+        },
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: 58,
         },
         tabBarActiveTintColor: colors.tabBarActive,
         tabBarInactiveTintColor: colors.tabBarInactive,
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '700',
-        },
       }}
     >
       <Tab.Screen
         name="Home"
         component={HomeScreen}
         options={{
-          headerTitle: 'HisabPro',
-          tabBarLabel: 'Home',
+          headerShown: false, // Removed redundant top header bar over personalized greeting
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'home' : 'home-outline'}
-              size={22}
+              size={26}
               color={color}
             />
           ),
@@ -68,11 +69,10 @@ export const TabNavigator: React.FC = () => {
         component={CustomersListScreen}
         options={{
           headerTitle: 'Customers & Udhar',
-          tabBarLabel: 'Customers',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'people' : 'people-outline'}
-              size={22}
+              size={26}
               color={color}
             />
           ),
@@ -84,11 +84,10 @@ export const TabNavigator: React.FC = () => {
         component={ExpensesScreen}
         options={{
           headerTitle: 'Personal Expenses',
-          tabBarLabel: 'Expenses',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'wallet' : 'wallet-outline'}
-              size={22}
+              size={26}
               color={color}
             />
           ),
@@ -100,11 +99,10 @@ export const TabNavigator: React.FC = () => {
         component={ProfileScreen}
         options={{
           headerTitle: 'Profile & Settings',
-          tabBarLabel: 'Profile',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'person' : 'person-outline'}
-              size={22}
+              size={26}
               color={color}
             />
           ),

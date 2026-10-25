@@ -354,9 +354,7 @@ export const HomeScreen: React.FC = () => {
         <EmptyState
           iconName="people-outline"
           title="No Customers Yet"
-          description="Add your first customer to start tracking ledger balances and reminders."
-          actionLabel="Add Customer"
-          onAction={() => navigation.navigate('AddCustomer')}
+          description="Use the 'Add Customer' button above to start tracking udhar balances and reminders."
         />
       )}
     </ScrollView>
