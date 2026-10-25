@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../context/ThemeContext';
@@ -17,49 +17,52 @@ export const TabNavigator: React.FC = () => {
   return (
     <Tab.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: colors.card,
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
+        headerShown: false, // Each screen renders its own rich branded header
+        tabBarShowLabel: true,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: -2,
+          marginBottom: Platform.OS === 'ios' ? 0 : 4,
         },
-        headerTitleStyle: {
-          fontWeight: '800',
-          fontSize: 18,
-          color: colors.textPrimary,
-        },
-        headerTintColor: colors.textPrimary,
-        tabBarShowLabel: false, // Removed labels to prevent text cut-off
         tabBarStyle: {
           backgroundColor: colors.tabBarBackground,
           borderTopColor: colors.tabBarBorder,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 78 : 58,
-          paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+          height: Platform.OS === 'ios' ? 82 : 62,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 6,
           paddingTop: 0,
-          elevation: 8,
+          elevation: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
         },
-        tabBarItemStyle: {
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: 58,
-        },
-        tabBarActiveTintColor: colors.tabBarActive,
-        tabBarInactiveTintColor: colors.tabBarInactive,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
       }}
     >
       <Tab.Screen
         name="Home"
         component={HomeScreen}
         options={{
-          headerShown: false, // Removed redundant top header bar over personalized greeting
+          tabBarLabel: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'home' : 'home-outline'}
-              size={26}
-              color={color}
-            />
+            <View style={styles.tabIconWrapper}>
+              {focused && (
+                <View
+                  style={[
+                    styles.activeTopIndicator,
+                    { backgroundColor: colors.primary },
+                  ]}
+                />
+              )}
+              <Ionicons
+                name={focused ? 'home' : 'home-outline'}
+                size={22}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
@@ -68,13 +71,23 @@ export const TabNavigator: React.FC = () => {
         name="Customers"
         component={CustomersListScreen}
         options={{
-          headerTitle: 'Customers & Udhar',
+          tabBarLabel: 'Customers',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'people' : 'people-outline'}
-              size={26}
-              color={color}
-            />
+            <View style={styles.tabIconWrapper}>
+              {focused && (
+                <View
+                  style={[
+                    styles.activeTopIndicator,
+                    { backgroundColor: colors.primary },
+                  ]}
+                />
+              )}
+              <Ionicons
+                name={focused ? 'people' : 'people-outline'}
+                size={22}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
@@ -83,13 +96,23 @@ export const TabNavigator: React.FC = () => {
         name="Expenses"
         component={ExpensesScreen}
         options={{
-          headerTitle: 'Personal Expenses',
+          tabBarLabel: 'Expenses',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'wallet' : 'wallet-outline'}
-              size={26}
-              color={color}
-            />
+            <View style={styles.tabIconWrapper}>
+              {focused && (
+                <View
+                  style={[
+                    styles.activeTopIndicator,
+                    { backgroundColor: colors.primary },
+                  ]}
+                />
+              )}
+              <Ionicons
+                name={focused ? 'wallet' : 'wallet-outline'}
+                size={22}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
@@ -98,16 +121,45 @@ export const TabNavigator: React.FC = () => {
         name="Profile"
         component={ProfileScreen}
         options={{
-          headerTitle: 'Profile & Settings',
+          tabBarLabel: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'person' : 'person-outline'}
-              size={26}
-              color={color}
-            />
+            <View style={styles.tabIconWrapper}>
+              {focused && (
+                <View
+                  style={[
+                    styles.activeTopIndicator,
+                    { backgroundColor: colors.primary },
+                  ]}
+                />
+              )}
+              <Ionicons
+                name={focused ? 'person' : 'person-outline'}
+                size={22}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
     </Tab.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  tabIconWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    height: '100%',
+    width: 60,
+    paddingTop: 4,
+  },
+  activeTopIndicator: {
+    position: 'absolute',
+    top: 0,
+    width: 36,
+    height: 3,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
+  },
+});

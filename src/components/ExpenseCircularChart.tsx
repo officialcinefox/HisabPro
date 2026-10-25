@@ -1,9 +1,10 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, G } from 'react-native-svg';
 import { useTheme } from '../context/ThemeContext';
 import { expenseCategoryColors } from '../theme/colors';
-import { CategoryExpenseSummary } from '../types';
+import { CategoryExpenseSummary, ExpenseCategory } from '../types';
 import { formatCurrency } from '../utils/formatting';
 
 interface ExpenseCircularChartProps {
@@ -11,14 +12,22 @@ interface ExpenseCircularChartProps {
   totalAmount: number;
 }
 
+const CATEGORY_ICONS: Record<ExpenseCategory, keyof typeof Ionicons.glyphMap> = {
+  Bills: 'receipt-outline',
+  Shopping: 'bag-handle-outline',
+  Food: 'restaurant-outline',
+  Travel: 'airplane-outline',
+  Other: 'wallet-outline',
+};
+
 export const ExpenseCircularChart: React.FC<ExpenseCircularChartProps> = ({
   data,
   totalAmount,
 }) => {
   const { colors } = useTheme();
 
-  const size = 180;
-  const strokeWidth = 22;
+  const size = 160;
+  const strokeWidth = 20;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
@@ -51,7 +60,7 @@ export const ExpenseCircularChart: React.FC<ExpenseCircularChartProps> = ({
               cx={size / 2}
               cy={size / 2}
               r={radius}
-              stroke={colors.cardElevated}
+              stroke="rgba(139, 92, 246, 0.18)"
               strokeWidth={strokeWidth}
               fill="transparent"
             />
@@ -84,7 +93,7 @@ export const ExpenseCircularChart: React.FC<ExpenseCircularChartProps> = ({
               styles.centerAmount,
               {
                 color: colors.textPrimary,
-                fontSize: totalAmount > 999999 ? 13 : totalAmount > 99999 ? 15 : 17,
+                fontSize: totalAmount > 999999 ? 12 : totalAmount > 99999 ? 14 : 16,
               },
             ]}
             numberOfLines={1}
@@ -94,18 +103,29 @@ export const ExpenseCircularChart: React.FC<ExpenseCircularChartProps> = ({
         </View>
       </View>
 
-      {/* Category Legend */}
+      {/* Category Legend (Side by Side matching reference) */}
       <View style={styles.legendContainer}>
         {activeSlices.map((item) => {
           const color = expenseCategoryColors[item.category] || colors.primary;
+          const icon = CATEGORY_ICONS[item.category] || 'wallet-outline';
           return (
             <View key={item.category} style={styles.legendItem}>
               <View style={styles.legendLeft}>
                 <View style={[styles.legendDot, { backgroundColor: color }]} />
-                <Text style={[styles.legendName, { color: colors.textPrimary }]}>
+                <Ionicons
+                  name={icon}
+                  size={14}
+                  color={color}
+                  style={styles.categoryIcon}
+                />
+                <Text
+                  style={[styles.legendName, { color: colors.textPrimary }]}
+                  numberOfLines={1}
+                >
                   {item.category}
                 </Text>
               </View>
+
               <View style={styles.legendRight}>
                 <Text style={[styles.legendAmount, { color: colors.textPrimary }]}>
                   {formatCurrency(item.amount)}
@@ -124,28 +144,31 @@ export const ExpenseCircularChart: React.FC<ExpenseCircularChartProps> = ({
 
 const styles = StyleSheet.create({
   container: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    marginVertical: 12,
+    justifyContent: 'space-around',
+    marginVertical: 10,
+    gap: 12,
   },
   chartWrapper: {
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 180,
-    height: 180,
-    marginBottom: 16,
+    width: 160,
+    height: 160,
   },
   centerTextContainer: {
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
   centerSub: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 0.8,
   },
   centerAmount: {
@@ -155,41 +178,45 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   legendContainer: {
-    width: '100%',
-    paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    flex: 1,
+    minWidth: 170,
+    gap: 6,
+    justifyContent: 'center',
   },
   legendItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
   legendLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  categoryIcon: {
+    marginRight: 6,
   },
   legendName: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   legendRight: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 6,
+    gap: 4,
   },
   legendAmount: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   legendPct: {
-    fontSize: 12,
+    fontSize: 11,
   },
 });

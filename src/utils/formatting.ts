@@ -118,3 +118,28 @@ export const getTransactionTypeInfo = (type: TransactionType) => {
     sign: '-', // reduces what customer owes user
   };
 };
+
+/**
+ * Format relative time (e.g. 'Today', 'Yesterday', '2 days ago', etc.)
+ */
+export const formatTimeAgo = (dateStr?: string | null): string => {
+  if (!dateStr) return 'No transactions yet';
+  try {
+    const todayStr = getTodayDateString();
+    if (dateStr === todayStr) return 'Today';
+
+    const txDate = new Date(dateStr);
+    const today = new Date(todayStr);
+    const diffDays = Math.round(
+      (today.getTime() - txDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays > 1 && diffDays < 30) return `${diffDays} days ago`;
+    if (diffDays >= 30 && diffDays < 60) return '1 month ago';
+    if (diffDays >= 60) return `${Math.floor(diffDays / 30)} months ago`;
+    return formatDate(dateStr);
+  } catch {
+    return dateStr;
+  }
+};

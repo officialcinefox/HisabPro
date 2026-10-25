@@ -79,12 +79,15 @@ export const enrichCustomersWithBalances = (
     const customerTx = txByCustomer[customer.id] || [];
     const balance = calculateCustomerBalance(customerTx);
     const pendingRemindersCount = remindersByCustomer[customer.id] || 0;
+    const sortedTx = [...customerTx].sort((a, b) => b.transaction_date.localeCompare(a.transaction_date));
+    const lastTransactionDate = sortedTx.length > 0 ? sortedTx[0].transaction_date : null;
 
     return {
       ...customer,
       ...balance,
       transactionCount: customerTx.length,
       pendingRemindersCount,
+      lastTransactionDate,
     };
   });
 };

@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AvatarPickerModal } from '../../components/AvatarPickerModal';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { Input } from '../../components/Input';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { RootStackParamList } from '../../types';
+import { getAvatarSource } from '../../utils/avatars';
 
 interface EditProfileScreenProps {
   navigation: NativeStackNavigationProp<RootStackParamList, 'EditProfile'>;
@@ -28,6 +32,8 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
 
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [phone, setPhone] = useState(profile?.phone || '');
+  const [selectedAvatarId, setSelectedAvatarId] = useState(profile?.avatar_id || 'male1');
+  const [avatarPickerVisible, setAvatarPickerVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -40,7 +46,7 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
     }
 
     setLoading(true);
-    const { error } = await updateProfile(displayName, phone);
+    const { error } = await updateProfile(displayName, phone, selectedAvatarId);
     setLoading(false);
 
     if (error) {
@@ -66,6 +72,36 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Update your display name and contact phone number.
           </Text>
+
+          {/* Avatar Selector Section */}
+          <View style={styles.avatarPickerSection}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setAvatarPickerVisible(true)}
+              style={[
+                styles.avatarLargeCircle,
+                { borderColor: colors.primary, backgroundColor: colors.cardElevated },
+              ]}
+            >
+              <Image
+                source={getAvatarSource(selectedAvatarId)}
+                style={styles.avatarImg}
+              />
+              <View style={[styles.editBadge, { backgroundColor: colors.primary }]}>
+                <Ionicons name="camera" size={14} color="#0B0F11" />
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setAvatarPickerVisible(true)}
+              style={styles.chooseAvatarBtn}
+            >
+              <Text style={[styles.chooseAvatarText, { color: colors.primary }]}>
+                Select 3D Character Avatar (Male / Female) ✨
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {errorMessage ? (
             <View
@@ -128,6 +164,13 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
           />
         </Card>
       </ScrollView>
+
+      <AvatarPickerModal
+        visible={avatarPickerVisible}
+        selectedAvatarId={selectedAvatarId}
+        onSelect={(id) => setSelectedAvatarId(id)}
+        onClose={() => setAvatarPickerVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -151,7 +194,43 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
+    marginBottom: 16,
+  },
+  avatarPickerSection: {
+    alignItems: 'center',
     marginBottom: 20,
+  },
+  avatarLargeCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2.5,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  avatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#0B0F11',
+  },
+  chooseAvatarBtn: {
+    marginTop: 8,
+    paddingVertical: 4,
+  },
+  chooseAvatarText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   errorBanner: {
     flexDirection: 'row',

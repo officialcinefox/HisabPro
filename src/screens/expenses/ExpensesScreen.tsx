@@ -17,6 +17,7 @@ import { ExpenseCategoryBar } from '../../components/ExpenseCategoryBar';
 import { ExpenseCircularChart } from '../../components/ExpenseCircularChart';
 import { FloatingActionButton } from '../../components/FloatingActionButton';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
+import { SearchBar } from '../../components/SearchBar';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { expenseCategoryColors } from '../../theme/colors';
@@ -25,18 +26,27 @@ import { formatCurrency, formatDate, getTodayDateString } from '../../utils/form
 import { dataService } from '../../services/dataService';
 
 const ALL_CATEGORIES: ExpenseCategory[] = [
+  'Bills',
+  'Shopping',
   'Food',
   'Travel',
-  'Shopping',
-  'Bills',
   'Other',
 ];
+
+const CATEGORY_ICONS: Record<ExpenseCategory, keyof typeof Ionicons.glyphMap> = {
+  Bills: 'receipt-outline',
+  Shopping: 'bag-handle-outline',
+  Food: 'restaurant-outline',
+  Travel: 'airplane-outline',
+  Other: 'wallet-outline',
+};
 
 export const ExpensesScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
   const { expenses, isLoading, refreshData } = useData();
 
+  const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [targetExpense, setTargetExpense] = useState<Expense | null>(null);
@@ -52,14 +62,38 @@ export const ExpensesScreen: React.FC = () => {
   const todayStr = getTodayDateString();
   const currentMonthPrefix = todayStr.substring(0, 7); // YYYY-MM
 
+  // Month label format e.g. "Oct 2026"
+  const currentMonthLabel = useMemo(() => {
+    try {
+      const d = new Date();
+      return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        year: 'numeric',
+      }).format(d);
+    } catch {
+      return 'This Month';
+    }
+  }, []);
+
+  // Filtered expenses based on search query
+  const filteredExpenses = useMemo(() => {
+    if (!searchQuery.trim()) return expenses;
+    const q = searchQuery.toLowerCase().trim();
+    return expenses.filter(
+      (e) =>
+        e.category.toLowerCase().includes(q) ||
+        (e.note && e.note.toLowerCase().includes(q))
+    );
+  }, [expenses, searchQuery]);
+
   // Current Month calculations
   const { monthTotal, categoryBreakdown } = useMemo(() => {
     let total = 0;
     const catSums: Record<ExpenseCategory, number> = {
+      Bills: 0,
+      Shopping: 0,
       Food: 0,
       Travel: 0,
-      Shopping: 0,
-      Bills: 0,
       Other: 0,
     };
 
@@ -103,8 +137,34 @@ export const ExpensesScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Top Hero Header matching Reference Image */}
+      <View style={styles.heroHeader}>
+        <View style={styles.heroTextCol}>
+          <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
+            Personal <Text style={{ color: colors.primary }}>Expenses</Text>
+          </Text>
+          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+            Track your spending and manage your budget
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={[
+            styles.monthSelectPill,
+            { backgroundColor: colors.cardElevated, borderColor: colors.border },
+          ]}
+        >
+          <Ionicons name="calendar" size={14} color={colors.primary} />
+          <Text style={[styles.monthSelectText, { color: colors.textPrimary }]}>
+            {currentMonthLabel}
+          </Text>
+          <Ionicons name="chevron-down" size={12} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
       <FlatList
-        data={expenses}
+        data={filteredExpenses}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -117,9 +177,9 @@ export const ExpensesScreen: React.FC = () => {
         }
         ListHeaderComponent={
           <>
-            {/* Monthly Total Card */}
+            {/* Card 1: THIS MONTH'S EXPENSES */}
             <Card style={styles.monthCard}>
-              <View style={styles.monthHeader}>
+              <View style={styles.monthTopRow}>
                 <View>
                   <Text style={[styles.monthLabel, { color: colors.textSecondary }]}>
                     THIS MONTH'S EXPENSES
@@ -127,7 +187,18 @@ export const ExpensesScreen: React.FC = () => {
                   <Text style={[styles.monthAmount, { color: colors.textPrimary }]}>
                     {formatCurrency(monthTotal)}
                   </Text>
+
+                  <View style={styles.trendRow}>
+                    <View style={styles.trendBadge}>
+                      <Ionicons name="arrow-up" size={12} color="#22C55E" />
+                      <Text style={styles.trendText}>12%</Text>
+                    </View>
+                    <Text style={[styles.trendSub, { color: colors.textSecondary }]}>
+                      vs last month
+                    </Text>
+                  </View>
                 </View>
+
                 <View
                   style={[
                     styles.monthIconWrapper,
@@ -137,69 +208,104 @@ export const ExpensesScreen: React.FC = () => {
                   <Ionicons name="pie-chart" size={24} color={colors.primary} />
                 </View>
               </View>
+            </Card>
 
-              {/* Category Breakdown with Circle Donut & Bar Toggle */}
-              {categoryBreakdown.length > 0 ? (
-                <View style={styles.breakdownContainer}>
-                  <View style={styles.breakdownHeaderRow}>
-                    <Text
-                      style={[styles.breakdownHeader, { color: colors.textSecondary }]}
-                    >
-                      Category Breakdown
-                    </Text>
-                    <View style={[styles.viewToggleGroup, { backgroundColor: colors.cardElevated, borderColor: colors.border }]}>
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={() => setChartView('circle')}
-                        style={[
-                          styles.viewToggleBtn,
-                          chartView === 'circle' && {
-                            backgroundColor: colors.primary,
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="pie-chart"
-                          size={14}
-                          color={chartView === 'circle' ? '#0B0F11' : colors.textSecondary}
-                        />
-                      </TouchableOpacity>
+            {/* Card 2: Category Breakdown Card */}
+            <Card style={styles.breakdownCard}>
+              <View style={styles.breakdownHeaderRow}>
+                <Text style={[styles.breakdownTitle, { color: colors.textPrimary }]}>
+                  Category Breakdown
+                </Text>
 
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={() => setChartView('bars')}
-                        style={[
-                          styles.viewToggleBtn,
-                          chartView === 'bars' && {
-                            backgroundColor: colors.primary,
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="bar-chart"
-                          size={14}
-                          color={chartView === 'bars' ? '#0B0F11' : colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {chartView === 'circle' ? (
-                    <ExpenseCircularChart
-                      data={categoryBreakdown}
-                      totalAmount={monthTotal}
+                <View
+                  style={[
+                    styles.viewToggleGroup,
+                    {
+                      backgroundColor: colors.cardElevated,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setChartView('circle')}
+                    style={[
+                      styles.viewToggleBtn,
+                      chartView === 'circle' && {
+                        backgroundColor: colors.primary,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="pie-chart"
+                      size={13}
+                      color={chartView === 'circle' ? '#0B0F11' : colors.textSecondary}
                     />
-                  ) : (
-                    categoryBreakdown.map((item) => (
-                      <ExpenseCategoryBar
-                        key={item.category}
-                        category={item.category}
-                        amount={item.amount}
-                        percentage={item.percentage}
-                      />
-                    ))
-                  )}
+                    <Text
+                      style={[
+                        styles.toggleBtnText,
+                        {
+                          color:
+                            chartView === 'circle'
+                              ? '#0B0F11'
+                              : colors.textSecondary,
+                          fontWeight: chartView === 'circle' ? '700' : '500',
+                        },
+                      ]}
+                    >
+                      Pie Chart
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setChartView('bars')}
+                    style={[
+                      styles.viewToggleBtn,
+                      chartView === 'bars' && {
+                        backgroundColor: colors.primary,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="bar-chart"
+                      size={13}
+                      color={chartView === 'bars' ? '#0B0F11' : colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.toggleBtnText,
+                        {
+                          color:
+                            chartView === 'bars'
+                              ? '#0B0F11'
+                              : colors.textSecondary,
+                          fontWeight: chartView === 'bars' ? '700' : '500',
+                        },
+                      ]}
+                    >
+                      Bar Chart
+                    </Text>
+                  </TouchableOpacity>
                 </View>
+              </View>
+
+              {categoryBreakdown.length > 0 ? (
+                chartView === 'circle' ? (
+                  <ExpenseCircularChart
+                    data={categoryBreakdown}
+                    totalAmount={monthTotal}
+                  />
+                ) : (
+                  categoryBreakdown.map((item) => (
+                    <ExpenseCategoryBar
+                      key={item.category}
+                      category={item.category}
+                      amount={item.amount}
+                      percentage={item.percentage}
+                    />
+                  ))
+                )
               ) : (
                 <Text
                   style={[
@@ -212,23 +318,49 @@ export const ExpensesScreen: React.FC = () => {
               )}
             </Card>
 
+            {/* Section Header: All Expenses */}
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                All Expenses
+                All <Text style={{ color: colors.primary }}>Expenses</Text>
               </Text>
               <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>
-                {expenses.length} records
+                {filteredExpenses.length} records
               </Text>
+            </View>
+
+            {/* Search & Filter Row */}
+            <View style={styles.searchRow}>
+              <View style={{ flex: 1 }}>
+                <SearchBar
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Search expenses by category or note..."
+                />
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={[
+                  styles.filterBtn,
+                  {
+                    backgroundColor: colors.cardElevated,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons name="filter" size={18} color={colors.primary} />
+              </TouchableOpacity>
             </View>
           </>
         }
         renderItem={({ item }) => {
           const catColor = expenseCategoryColors[item.category] || colors.primary;
+          const catIcon = CATEGORY_ICONS[item.category] || 'wallet-outline';
+
           return (
             <Card style={styles.expenseRowCard}>
               <View style={styles.rowLeft}>
                 <View style={[styles.categoryIconCircle, { backgroundColor: catColor }]}>
-                  <Ionicons name="wallet-outline" size={16} color="#FFFFFF" />
+                  <Ionicons name={catIcon} size={18} color="#FFFFFF" />
                 </View>
 
                 <View style={styles.expenseDetails}>
@@ -237,18 +369,26 @@ export const ExpensesScreen: React.FC = () => {
                   >
                     {item.category}
                   </Text>
-                  <Text
-                    style={[styles.expenseDate, { color: colors.textSecondary }]}
-                  >
-                    {formatDate(item.expense_date)}
-                  </Text>
                   {item.note ? (
                     <Text
                       style={[styles.expenseNote, { color: colors.textSecondary }]}
+                      numberOfLines={1}
                     >
                       {item.note}
                     </Text>
                   ) : null}
+                  <View style={styles.dateRow}>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={12}
+                      color={colors.textSecondary}
+                    />
+                    <Text
+                      style={[styles.expenseDate, { color: colors.textSecondary }]}
+                    >
+                      {formatDate(item.expense_date)}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
@@ -263,11 +403,11 @@ export const ExpensesScreen: React.FC = () => {
                     setTargetExpense(item);
                     setDeleteModalVisible(true);
                   }}
-                  style={styles.deleteExpenseBtn}
+                  style={styles.moreExpenseBtn}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Ionicons
-                    name="trash-outline"
+                    name="ellipsis-vertical"
                     size={16}
                     color={colors.textSecondary}
                   />
@@ -279,12 +419,17 @@ export const ExpensesScreen: React.FC = () => {
         ListEmptyComponent={
           <EmptyState
             iconName="receipt-outline"
-            title="No Expenses Recorded"
-            description="Tap '+ Add Expense' below to track personal and shop expenses."
+            title={searchQuery ? 'No Matching Expenses' : 'No Expenses Recorded'}
+            description={
+              searchQuery
+                ? 'Try a different keyword or category.'
+                : 'Tap "+ Add Expense" below to track personal and shop expenses.'
+            }
           />
         }
       />
 
+      {/* Bottom Floating Action Button */}
       <FloatingActionButton
         label="Add Expense"
         iconName="add"
@@ -313,30 +458,88 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  heroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  heroTextCol: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  heroSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  monthSelectPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  monthSelectText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   listContent: {
-    padding: 16,
-    paddingBottom: 90,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 100,
   },
   monthCard: {
     padding: 18,
     borderRadius: 18,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  monthHeader: {
+  monthTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   monthLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
   monthAmount: {
     fontSize: 28,
     fontWeight: '900',
     marginTop: 4,
     letterSpacing: -0.5,
+  },
+  trendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  trendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 2,
+  },
+  trendText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#22C55E',
+  },
+  trendSub: {
+    fontSize: 11,
   },
   monthIconWrapper: {
     width: 48,
@@ -345,54 +548,75 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  breakdownContainer: {
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.08)',
+  breakdownCard: {
+    padding: 16,
+    borderRadius: 18,
+    marginBottom: 14,
   },
   breakdownHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  breakdownHeader: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+  breakdownTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   viewToggleGroup: {
     flexDirection: 'row',
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    padding: 2,
+    padding: 3,
     gap: 2,
   },
   viewToggleBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  toggleBtnText: {
+    fontSize: 12,
   },
   noExpenseMonthText: {
-    fontSize: 12,
-    marginTop: 12,
+    fontSize: 13,
+    marginTop: 10,
+    textAlign: 'center',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
-    marginTop: 6,
+    marginTop: 8,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: -0.3,
   },
   sectionCount: {
     fontSize: 12,
+    fontWeight: '600',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  filterBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    marginBottom: 12,
   },
   expenseRowCard: {
     flexDirection: 'row',
@@ -400,7 +624,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     marginVertical: 4,
-    borderRadius: 14,
+    borderRadius: 16,
   },
   rowLeft: {
     flexDirection: 'row',
@@ -409,9 +633,9 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   categoryIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -420,26 +644,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   expenseCategory: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  expenseDate: {
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   expenseNote: {
     fontSize: 12,
     marginTop: 2,
   },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  expenseDate: {
+    fontSize: 11,
+  },
   rowRight: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   expenseAmount: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: -0.2,
   },
-  deleteExpenseBtn: {
-    marginTop: 6,
+  moreExpenseBtn: {
     padding: 4,
   },
 });

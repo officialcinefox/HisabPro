@@ -3,15 +3,20 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { CustomerWithBalance } from '../types';
-import { formatCurrency } from '../utils/formatting';
+import { formatCurrency, formatTimeAgo } from '../utils/formatting';
 import { BalanceBadge } from './BalanceBadge';
 
 interface CustomerCardProps {
   customer: CustomerWithBalance;
   onPress: () => void;
+  onOptionsPress?: () => void;
 }
 
-export const CustomerCard: React.FC<CustomerCardProps> = ({ customer, onPress }) => {
+export const CustomerCard: React.FC<CustomerCardProps> = ({
+  customer,
+  onPress,
+  onOptionsPress,
+}) => {
   const { colors } = useTheme();
 
   const isLenaHai = customer.status === 'lena_hai';
@@ -24,54 +29,71 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({ customer, onPress })
 
   return (
     <TouchableOpacity
-      activeOpacity={0.75}
+      activeOpacity={0.78}
       onPress={onPress}
       style={[
         styles.card,
         {
           backgroundColor: colors.card,
           borderColor: colors.border,
+          borderLeftColor: colors.primary,
         },
       ]}
     >
-      <View style={styles.topRow}>
-        <View style={styles.avatarAndInfo}>
-          <View
-            style={[
-              styles.avatar,
-              {
-                backgroundColor: colors.cardElevated,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <Text style={[styles.avatarText, { color: colors.primary }]}>
-              {customer.name.charAt(0).toUpperCase()}
-            </Text>
-          </View>
+      <View style={styles.mainRow}>
+        {/* Left: Customer Initial Avatar in Warm Dark Circle */}
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {customer.name.charAt(0).toUpperCase()}
+          </Text>
+        </View>
 
-          <View style={styles.customerInfo}>
-            <Text
-              style={[styles.customerName, { color: colors.textPrimary }]}
-              numberOfLines={1}
-            >
-              {customer.name}
+        {/* Center: Name, Phone, and Last Transaction Info */}
+        <View style={styles.infoCol}>
+          <Text
+            style={[styles.customerName, { color: colors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {customer.name}
+          </Text>
+
+          {customer.phone ? (
+            <View style={styles.subRow}>
+              <Ionicons name="call-outline" size={12} color={colors.textSecondary} />
+              <Text style={[styles.subText, { color: colors.textSecondary }]}>
+                {customer.phone}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.subRow}>
+            <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
+            <Text style={[styles.subText, { color: colors.textSecondary }]}>
+              Last transaction: {formatTimeAgo(customer.lastTransactionDate)}
             </Text>
-            {customer.phone ? (
-              <View style={styles.phoneRow}>
-                <Ionicons name="call-outline" size={12} color={colors.textSecondary} />
-                <Text style={[styles.phoneText, { color: colors.textSecondary }]}>
-                  {customer.phone}
-                </Text>
-              </View>
-            ) : null}
           </View>
         </View>
 
-        <View style={styles.balanceContainer}>
-          <Text style={[styles.balanceAmount, { color: balanceColor }]}>
-            {formatCurrency(customer.displayAmount)}
-          </Text>
+        {/* Right: Amount, Status Badge, and Three Dots Menu */}
+        <View style={styles.rightCol}>
+          <View style={styles.rightTopRow}>
+            <Text style={[styles.balanceAmount, { color: balanceColor }]}>
+              {formatCurrency(customer.displayAmount)}
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={onOptionsPress || onPress}
+              style={styles.moreBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name="ellipsis-vertical"
+                size={18}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+
           <BalanceBadge status={customer.status} size="small" />
         </View>
       </View>
@@ -83,7 +105,7 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({ customer, onPress })
             { backgroundColor: 'rgba(255, 122, 0, 0.12)' },
           ]}
         >
-          <Ionicons name="alarm-outline" size={13} color={colors.primary} />
+          <Ionicons name="alarm-outline" size={12} color={colors.primary} />
           <Text style={[styles.reminderText, { color: colors.primary }]}>
             {customer.pendingRemindersCount}{' '}
             {customer.pendingRemindersCount === 1 ? 'reminder' : 'reminders'} pending
@@ -96,59 +118,72 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({ customer, onPress })
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    marginVertical: 5,
+    borderLeftWidth: 3.5,
+    marginVertical: 6,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  topRow: {
+  mainRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  avatarAndInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 10,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#242220',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   avatarText: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FF7A00',
   },
-  customerInfo: {
+  infoCol: {
     flex: 1,
+    justifyContent: 'center',
   },
   customerName: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  phoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  phoneText: {
-    fontSize: 12,
-  },
-  balanceContainer: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  balanceAmount: {
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: -0.2,
+    marginBottom: 3,
+  },
+  subRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  subText: {
+    fontSize: 12,
+  },
+  rightCol: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 6,
+    marginLeft: 8,
+  },
+  rightTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  balanceAmount: {
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+  moreBtn: {
+    padding: 2,
   },
   reminderIndicator: {
     flexDirection: 'row',
@@ -156,7 +191,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    marginTop: 8,
+    marginTop: 10,
     alignSelf: 'flex-start',
     gap: 5,
   },

@@ -61,9 +61,24 @@ export const CustomersListScreen: React.FC = () => {
 
   const filterOptions = [
     { label: 'All', value: 'all' as FilterValue, count: counts.all },
-    { label: 'To Receive', value: 'lena_hai' as FilterValue, count: counts.lena },
-    { label: 'To Pay', value: 'dena_hai' as FilterValue, count: counts.dena },
-    { label: 'Settled', value: 'settled' as FilterValue, count: counts.settled },
+    {
+      label: 'To Receive',
+      value: 'lena_hai' as FilterValue,
+      count: counts.lena,
+      iconName: 'arrow-down' as const,
+    },
+    {
+      label: 'To Pay',
+      value: 'dena_hai' as FilterValue,
+      count: counts.dena,
+      iconName: 'arrow-up' as const,
+    },
+    {
+      label: 'Settled',
+      value: 'settled' as FilterValue,
+      count: counts.settled,
+      iconName: 'checkmark-circle-outline' as const,
+    },
   ];
 
   const filteredAndSortedCustomers = useMemo(() => {
@@ -102,6 +117,29 @@ export const CustomersListScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Hero Screen Header (Exact match to Reference Image) */}
+      <View style={styles.heroHeader}>
+        <View style={styles.heroTextCol}>
+          <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
+            Customers & <Text style={{ color: colors.primary }}>Udhar</Text>
+          </Text>
+          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+            Manage your customers, track udhar and payments
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('AddCustomer')}
+          style={[
+            styles.addCustomerHeaderBtn,
+            { backgroundColor: colors.cardElevated, borderColor: colors.border },
+          ]}
+        >
+          <Ionicons name="person-add" size={18} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.topBar}>
         <View style={styles.searchRow}>
           <View style={{ flex: 1 }}>
@@ -278,9 +316,38 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  heroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  heroTextCol: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  heroSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  addCustomerHeaderBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
   topBar: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 10,
   },
   searchRow: {
     flexDirection: 'row',

@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 
 export type FilterValue = 'all' | 'lena_hai' | 'dena_hai' | 'settled';
@@ -8,6 +9,7 @@ interface FilterOption {
   label: string;
   value: FilterValue;
   count?: number;
+  iconName?: keyof typeof Ionicons.glyphMap;
 }
 
 interface FilterTabsProps {
@@ -45,6 +47,14 @@ export const FilterTabs: React.FC<FilterTabsProps> = ({
                 },
               ]}
             >
+              {option.iconName && (
+                <Ionicons
+                  name={option.iconName}
+                  size={14}
+                  color={isSelected ? '#0B0F11' : colors.textSecondary}
+                  style={{ marginRight: 5 }}
+                />
+              )}
               <Text
                 style={[
                   styles.label,
@@ -61,7 +71,7 @@ export const FilterTabs: React.FC<FilterTabsProps> = ({
                   style={[
                     styles.countBadge,
                     {
-                      backgroundColor: isSelected ? 'rgba(0,0,0,0.15)' : colors.card,
+                      backgroundColor: isSelected ? 'rgba(0,0,0,0.2)' : colors.card,
                     },
                   ]}
                 >

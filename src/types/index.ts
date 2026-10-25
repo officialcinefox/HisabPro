@@ -8,6 +8,7 @@ export interface Profile {
   display_name: string;
   email: string;
   phone?: string | null;
+  avatar_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -70,6 +71,7 @@ export interface CustomerWithBalance extends Customer {
   displayAmount: number;
   transactionCount: number;
   pendingRemindersCount: number;
+  lastTransactionDate?: string | null;
 }
 
 export interface DashboardSummary {

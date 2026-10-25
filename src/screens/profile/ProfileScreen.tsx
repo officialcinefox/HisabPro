@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppLogo } from '../../components/AppLogo';
+import { AvatarPickerModal } from '../../components/AvatarPickerModal';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -18,11 +20,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { RootStackParamList } from '../../types';
+import { getAvatarSource } from '../../utils/avatars';
 import { formatCurrency } from '../../utils/formatting';
 
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { profile, user, signOut } = useAuth();
+  const { profile, user, signOut, updateAvatar } = useAuth();
   const { setThemeMode, colors, isDark } = useTheme();
   const { customers, transactions, expenses, dashboardSummary } = useData();
 
@@ -30,6 +33,7 @@ export const ProfileScreen: React.FC = () => {
   const [loggingOut, setLoggingOut] = useState(false);
   const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [avatarPickerVisible, setAvatarPickerVisible] = useState(false);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -63,14 +67,22 @@ export const ProfileScreen: React.FC = () => {
       {/* Profile Card with Quick Theme Toggle Icon in Upper Corner */}
       <Card style={styles.profileCard}>
         <View style={styles.profileHeader}>
-          <View
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setAvatarPickerVisible(true)}
             style={[
               styles.avatarLarge,
               { backgroundColor: colors.cardElevated, borderColor: colors.primary },
             ]}
           >
-            <Ionicons name="person" size={36} color={colors.primary} />
-          </View>
+            <Image
+              source={getAvatarSource(profile?.avatar_id)}
+              style={styles.avatarLargeImg}
+            />
+            <View style={[styles.avatarEditBadge, { backgroundColor: colors.primary }]}>
+              <Ionicons name="camera" size={12} color="#0B0F11" />
+            </View>
+          </TouchableOpacity>
 
           <View style={styles.profileTextInfo}>
             <Text style={[styles.userName, { color: colors.textPrimary }]}>
@@ -84,6 +96,15 @@ export const ProfileScreen: React.FC = () => {
                 📞 {profile.phone}
               </Text>
             ) : null}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setAvatarPickerVisible(true)}
+              style={styles.changeAvatarLink}
+            >
+              <Text style={[styles.changeAvatarText, { color: colors.primary }]}>
+                Change 3D Avatar ✨
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Upper Corner Theme Toggle Icon: Sun in Dark Mode, Moon in Light Mode */}
@@ -322,6 +343,14 @@ export const ProfileScreen: React.FC = () => {
         onConfirm={handleDeleteAccount}
         onCancel={() => setDeleteAccountModalVisible(false)}
       />
+
+      {/* Avatar Picker Modal */}
+      <AvatarPickerModal
+        visible={avatarPickerVisible}
+        selectedAvatarId={profile?.avatar_id}
+        onSelect={(avatarId) => updateAvatar(avatarId)}
+        onClose={() => setAvatarPickerVisible(false)}
+      />
     </ScrollView>
   );
 };
@@ -346,13 +375,38 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   avatarLarge: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  avatarLargeImg: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#0B0F11',
+  },
+  changeAvatarLink: {
+    marginTop: 4,
+  },
+  changeAvatarText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   profileTextInfo: {
     flex: 1,

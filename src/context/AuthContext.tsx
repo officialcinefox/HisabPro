@@ -20,7 +20,12 @@ interface AuthContextType {
   sendPasswordResetCode: (email: string) => Promise<{ error: string | null }>;
   verifyPasswordResetOtp: (email: string, token: string) => Promise<{ error: string | null }>;
   resetPassword: (newPassword: string) => Promise<{ error: string | null }>;
-  updateProfile: (displayName: string, phone?: string) => Promise<{ error: string | null }>;
+  updateProfile: (
+    displayName: string,
+    phone?: string,
+    avatarId?: string
+  ) => Promise<{ error: string | null }>;
+  updateAvatar: (avatarId: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -36,6 +41,7 @@ const AuthContext = createContext<AuthContextType>({
   verifyPasswordResetOtp: async () => ({ error: null }),
   resetPassword: async () => ({ error: null }),
   updateProfile: async () => ({ error: null }),
+  updateAvatar: async () => ({ error: null }),
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -234,16 +240,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateProfile = async (displayName: string, phone?: string) => {
+  const updateProfile = async (
+    displayName: string,
+    phone?: string,
+    avatarId?: string
+  ) => {
     if (!user) return { error: 'Not authenticated' };
     try {
+      const updateData: any = {
+        display_name: displayName.trim(),
+        phone: phone?.trim() || null,
+        updated_at: new Date().toISOString(),
+      };
+      if (avatarId) {
+        updateData.avatar_id = avatarId;
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          display_name: displayName.trim(),
-          phone: phone?.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', user.id);
 
       if (error) {
@@ -254,6 +269,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error: null };
     } catch (err: any) {
       return { error: err.message || 'Failed to update profile.' };
+    }
+  };
+
+  const updateAvatar = async (avatarId: string) => {
+    if (!user) return { error: 'Not authenticated' };
+    try {
+      // Optimistically update local profile immediately
+      setProfile((prev) => (prev ? { ...prev, avatar_id: avatarId } : null));
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          avatar_id: avatarId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        await fetchProfile(user.id); // revert on error
+        return { error: error.message };
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message || 'Failed to update avatar.' };
     }
   };
 
@@ -272,6 +312,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         verifyPasswordResetOtp,
         resetPassword,
         updateProfile,
+        updateAvatar,
       }}
     >
       {children}

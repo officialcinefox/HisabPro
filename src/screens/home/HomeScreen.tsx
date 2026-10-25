@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   FlatList,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -22,6 +23,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { RootStackParamList } from '../../types';
+import { getAvatarSource } from '../../utils/avatars';
 import { formatCurrency, getTodayDateString } from '../../utils/formatting';
 
 export const HomeScreen: React.FC = () => {
@@ -67,30 +69,34 @@ export const HomeScreen: React.FC = () => {
         />
       }
     >
-      {/* Branded Header with App Logo */}
+      {/* Branded Header: App Logo on Left | Welcome + 3D Avatar on Right */}
       <View style={styles.headerRow}>
-        <AppLogo size="medium" />
+        <AppLogo size="small" />
 
         <TouchableOpacity
-          activeOpacity={0.7}
+          activeOpacity={0.8}
           onPress={() => navigation.navigate('Main', { screen: 'Profile' } as any)}
-          style={[
-            styles.avatarCircle,
-            { backgroundColor: colors.cardElevated, borderColor: colors.border },
-          ]}
+          style={styles.headerRightProfile}
         >
-          <Ionicons name="person" size={18} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
+          <View style={styles.headerGreetingCol}>
+            <Text style={[styles.headerGreetingSub, { color: colors.textSecondary }]}>
+              Welcome back,
+            </Text>
+            <Text
+              style={[styles.headerGreetingName, { color: colors.textPrimary }]}
+              numberOfLines={1}
+            >
+              {profile?.display_name || 'Abhishek Dagar'} 👋
+            </Text>
+          </View>
 
-      {/* Personalized Greeting */}
-      <View style={styles.greetingContainer}>
-        <Text style={[styles.greeting, { color: colors.textSecondary }]}>
-          Welcome back,{' '}
-          <Text style={[styles.userName, { color: colors.textPrimary }]}>
-            {profile?.display_name || 'Merchant'} 👋
-          </Text>
-        </Text>
+          <View style={[styles.avatarGlowCircle, { borderColor: colors.primary }]}>
+            <Image
+              source={getAvatarSource(profile?.avatar_id)}
+              style={styles.avatarImg}
+            />
+          </View>
+        </TouchableOpacity>
       </View>
 
       {/* Hero Net Balance Banner */}
@@ -377,27 +383,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
     marginTop: 4,
   },
-  greetingContainer: {
-    marginBottom: 14,
-    marginTop: -2,
-  },
-  greeting: {
-    fontSize: 14,
-  },
-  userName: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  avatarCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  headerRightProfile: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
+    gap: 10,
+    maxWidth: '55%',
+  },
+  headerGreetingCol: {
+    alignItems: 'flex-end',
+  },
+  headerGreetingSub: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  headerGreetingName: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 1,
+  },
+  avatarGlowCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    overflow: 'hidden',
+    backgroundColor: '#1A2026',
+    elevation: 4,
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+  },
+  avatarImg: {
+    width: '100%',
+    height: '100%',
   },
   heroCard: {
     padding: 18,
