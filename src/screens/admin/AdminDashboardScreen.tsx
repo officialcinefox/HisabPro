@@ -1,10 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -13,853 +15,1394 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Circle, G, Rect } from 'react-native-svg';
 import { AvatarPickerModal } from '../../components/AvatarPickerModal';
 import { BottomNavBar } from '../../components/BottomNavBar';
 import { useAuth } from '../../context/AuthContext';
-import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
+import {
+  adminService,
+  AdminStats,
+  AdminUserProfile,
+  AppFeatureConfig,
+  DEFAULT_FEATURE_CONFIG,
+} from '../../services/adminService';
 import { RootStackParamList } from '../../types';
 import { getAvatarSource } from '../../utils/avatars';
-import { formatCurrency, formatDate } from '../../utils/formatting';
 
 interface AdminDashboardScreenProps {
   navigation: NativeStackNavigationProp<RootStackParamList, 'AdminDashboard'>;
 }
 
+type TabKey = 'features' | 'announcement' | 'security' | 'branding' | 'users';
+
 export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navigation }) => {
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 1024;
+  const isDesktop = width >= 900;
   const { colors, isDark } = useTheme();
   const { profile, user, updateAvatar } = useAuth();
-  const { customers, transactions, expenses, dashboardSummary } = useData();
 
-  // State
-  const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'year'>('month');
-  const [timeFilterModal, setTimeFilterModal] = useState(false);
-  const [moneyFlowFilter, setMoneyFlowFilter] = useState<'7days' | '30days'>('7days');
+  // Active Tab
+  const [activeTab, setActiveTab] = useState<TabKey>('features');
+
+  // Loading & Saving States
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+
+  // App Feature Configuration State
+  const [config, setConfig] = useState<AppFeatureConfig>(DEFAULT_FEATURE_CONFIG);
+
+  // Platform Users & Stats
+  const [stats, setStats] = useState<AdminStats>({
+    totalUsers: 1,
+    totalCustomers: 0,
+    totalTransactions: 0,
+    totalVolume: 0,
+    activeToday: 1,
+  });
+  const [users, setUsers] = useState<AdminUserProfile[]>([]);
+
+  // Modals
   const [avatarPickerVisible, setAvatarPickerVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [usersModalVisible, setUsersModalVisible] = useState(false);
-  const [brandModalVisible, setBrandModalVisible] = useState(false);
-  const [contentModalVisible, setContentModalVisible] = useState(false);
-  const [activeSidebarTab, setActiveSidebarTab] = useState<'Dashboard' | 'Customers' | 'Transactions' | 'Expenses' | 'Reports' | 'Reminders' | 'Users'>('Dashboard');
+  const [templateModalVisible, setTemplateModalVisible] = useState(false);
+  const [announcementModalVisible, setAnnouncementModalVisible] = useState(false);
+  const [brandingModalVisible, setBrandingModalVisible] = useState(false);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [maintenanceModalVisible, setMaintenanceModalVisible] = useState(false);
 
-  // Business Name and Tagline for Content Editor
-  const [businessName, setBusinessName] = useState('HisabPro');
-  const [businessTagline, setBusinessTagline] = useState('Simple Accounts. Better Business.');
+  // Temporary Edit Form States
+  const [tempTemplate, setTempTemplate] = useState('');
+  const [tempAnnTitle, setTempAnnTitle] = useState('');
+  const [tempAnnText, setTempAnnText] = useState('');
+  const [tempAnnType, setTempAnnType] = useState<'info' | 'success' | 'warning'>('info');
+  const [tempBrandName, setTempBrandName] = useState('');
+  const [tempTagline, setTempTagline] = useState('');
+  const [tempPhone, setTempPhone] = useState('');
+  const [tempEmail, setTempEmail] = useState('');
+  const [tempUpiId, setTempUpiId] = useState('');
+  const [tempMerchantName, setTempMerchantName] = useState('');
+  const [tempMaintMsg, setTempMaintMsg] = useState('');
 
-  // Top Customers (sorted by absolute displayAmount descending)
-  const topCustomers = useMemo(() => {
-    if (customers.length > 0) {
-      return [...customers]
-        .sort((a, b) => b.displayAmount - a.displayAmount)
-        .slice(0, 4);
-    }
-    // Fallback sample data matching reference image
-    return [
-      { id: 'c1', name: 'Shyam', phone: '8440003711', displayAmount: 42000, status: 'lena_hai' as const },
-      { id: 'c2', name: 'Ramesh', phone: '9876543210', displayAmount: 28500, status: 'lena_hai' as const },
-      { id: 'c3', name: 'Amit', phone: '9543210987', displayAmount: 12000, status: 'lena_hai' as const },
-    ];
-  }, [customers]);
-
-  // Recent Transactions
-  const recentTransactions = useMemo(() => {
-    if (transactions.length > 0) {
-      return [...transactions]
-        .sort((a, b) => b.transaction_date.localeCompare(a.transaction_date))
-        .slice(0, 5);
-    }
-    // Fallback sample data matching reference image
-    return [
-      { id: 't1', customer_id: 'c1', transaction_type: 'you_got' as const, amount: 10000, transaction_date: '2026-10-25', note: 'Mujhe Mile' },
-      { id: 't2', customer_id: 'c2', transaction_type: 'you_gave' as const, amount: 5000, transaction_date: '2026-10-25', note: 'Maine Diye' },
-      { id: 't3', customer_id: 'c3', transaction_type: 'you_got' as const, amount: 2500, transaction_date: '2026-10-24', note: 'Payment Received' },
-      { id: 't4', customer_id: 'c4', transaction_type: 'you_gave' as const, amount: 8000, transaction_date: '2026-10-24', note: 'Payment Given' },
-    ];
-  }, [transactions]);
-
-  // Key Totals
-  const totalCustomersCount = customers.length > 0 ? customers.length : 156;
-  const totalTransactionsCount = transactions.length > 0 ? transactions.length : 432;
-  const totalExpensesAmount = expenses.length > 0 ? expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0) : 28500;
-  const netBalanceAmount = dashboardSummary.netBalance !== 0 ? dashboardSummary.netBalance : 142300;
-  const totalGaveAmount = dashboardSummary.totalGiven !== 0 ? dashboardSummary.totalGiven : 128500;
-  const totalGotAmount = dashboardSummary.totalReceived !== 0 ? dashboardSummary.totalReceived : 98300;
-
-  // 7-day Bar Chart Data
-  const barData = [
-    { day: '18 Oct', gave: 18, got: 28 },
-    { day: '19 Oct', gave: 25, got: 38 },
-    { day: '20 Oct', gave: 45, got: 22 },
-    { day: '21 Oct', gave: 32, got: 48 },
-    { day: '22 Oct', gave: 52, got: 34 },
-    { day: '23 Oct', gave: 28, got: 40 },
-    { day: '24 Oct', gave: 44, got: 55 },
-  ];
-
-  // Expenses breakdown
-  const expenseCategories = [
-    { name: 'Shop Rent', pct: '40%', amount: '₹11,500', color: '#FF7A00' },
-    { name: 'Material', pct: '25%', amount: '₹7,200', color: '#22C55E' },
-    { name: 'Transport', pct: '15%', amount: '₹4,300', color: '#8B5CF6' },
-    { name: 'Food', pct: '10%', amount: '₹2,800', color: '#EAB308' },
-    { name: 'Other', pct: '10%', amount: '₹2,700', color: '#64748B' },
-  ];
-
-  // Helper for customer initial colors
-  const getInitialColor = (index: number) => {
-    const palette = ['#FF7A00', '#F97316', '#3B82F6', '#8B5CF6', '#22C55E'];
-    return palette[index % palette.length];
-  };
-
-  const handleSidebarNav = (tab: typeof activeSidebarTab) => {
-    setActiveSidebarTab(tab);
-    if (tab === 'Customers') navigation.navigate('Main', { screen: 'Customers' });
-    else if (tab === 'Expenses') navigation.navigate('Main', { screen: 'Expenses' });
-    else if (tab === 'Users') setUsersModalVisible(true);
-    else if (tab === 'Reports') {
-      if (customers.length > 0) navigation.navigate('CustomerReport', { customerId: customers[0].id });
-      else Alert.alert('Reports', 'Please add a customer first to view statements.');
+  // Load initial data
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [featConfig, platformStats, allUsers] = await Promise.all([
+        adminService.getFeatureConfig(),
+        adminService.getPlatformStats(),
+        adminService.getAllUsers(),
+      ]);
+      setConfig(featConfig);
+      setStats(platformStats);
+      setUsers(allUsers);
+    } catch (e) {
+      console.warn('Failed to load admin settings:', e);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Main Dashboard Body
-  const renderDashboardContent = () => (
-    <View style={styles.dashboardContainer}>
-      {/* Top Greeting Row */}
-      <View style={styles.greetingRow}>
-        <View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={[styles.greetingTitle, { color: colors.textPrimary }]}>
-              Welcome Back, Abhishek!
-            </Text>
-            <Text style={{ fontSize: 20 }}>👑</Text>
-          </View>
-          <Text style={[styles.greetingSub, { color: colors.textSecondary }]}>
-            Here's your business overview for today.
-          </Text>
-        </View>
+  useEffect(() => {
+    loadData();
+  }, []);
 
-        {/* Date Filter Pill Dropdown */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setTimeFilterModal(true)}
-          style={[styles.dateFilterBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-        >
-          <Ionicons name="calendar-outline" size={14} color={colors.primary} />
-          <Text style={[styles.dateFilterText, { color: colors.textPrimary }]}>
-            {timeFilter === 'today' ? 'Today' : timeFilter === 'week' ? 'This Week' : timeFilter === 'month' ? 'This Month' : 'This Year'}
-          </Text>
-          <Ionicons name="chevron-down" size={13} color={colors.textSecondary} />
-        </TouchableOpacity>
-      </View>
+  // Save Config to storage & notify
+  const handleSaveConfig = async (updatedConfig: AppFeatureConfig, successMsg = 'Settings saved successfully!') => {
+    setSaving(true);
+    setConfig(updatedConfig);
+    const res = await adminService.saveFeatureConfig(updatedConfig);
+    setSaving(false);
+    if (res.success) {
+      setSaveSuccessMessage(successMsg);
+      setTimeout(() => setSaveSuccessMessage(null), 3000);
+    } else {
+      Alert.alert('Error', res.error || 'Failed to save settings');
+    }
+  };
 
-      {/* 4 Summary Metrics Cards */}
-      <View style={styles.metricsGrid}>
-        {/* Total Customers */}
-        <View style={[styles.metricCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.metricCardTop}>
-            <View style={[styles.metricIconWrap, { backgroundColor: 'rgba(255, 122, 0, 0.15)' }]}>
-              <Ionicons name="people" size={18} color="#FF7A00" />
-            </View>
-          </View>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Total Customers</Text>
-          <Text style={[styles.metricValue, { color: colors.textPrimary }]}>{totalCustomersCount}</Text>
-          <Text style={styles.trendGreen}>↑ +12 this month</Text>
-        </View>
+  // Toggle helper
+  const toggleFeature = (key: keyof AppFeatureConfig) => {
+    const updated = {
+      ...config,
+      [key]: !config[key],
+    };
+    handleSaveConfig(updated, `${String(key)} updated`);
+  };
 
-        {/* Total Transactions */}
-        <View style={[styles.metricCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.metricCardTop}>
-            <View style={[styles.metricIconWrap, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
-              <Ionicons name="receipt" size={18} color="#8B5CF6" />
-            </View>
-          </View>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Total Transactions</Text>
-          <Text style={[styles.metricValue, { color: colors.textPrimary }]}>{totalTransactionsCount}</Text>
-          <Text style={styles.trendGreen}>↑ +18% from last month</Text>
-        </View>
+  // Handlers for modals
+  const openTemplateModal = () => {
+    setTempTemplate(config.whatsappTemplate);
+    setTemplateModalVisible(true);
+  };
+  const saveTemplateModal = () => {
+    handleSaveConfig({ ...config, whatsappTemplate: tempTemplate });
+    setTemplateModalVisible(false);
+  };
 
-        {/* Total Expenses */}
-        <View style={[styles.metricCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.metricCardTop}>
-            <View style={[styles.metricIconWrap, { backgroundColor: 'rgba(234, 179, 8, 0.15)' }]}>
-              <Ionicons name="wallet" size={18} color="#EAB308" />
-            </View>
-          </View>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Total Expenses</Text>
-          <Text style={[styles.metricValue, { color: colors.textPrimary }]}>{formatCurrency(totalExpensesAmount)}</Text>
-          <Text style={styles.trendRed}>↓ -8% from last month</Text>
-        </View>
+  const openAnnouncementModal = () => {
+    setTempAnnTitle(config.announcementTitle);
+    setTempAnnText(config.announcementText);
+    setTempAnnType(config.announcementType);
+    setAnnouncementModalVisible(true);
+  };
+  const saveAnnouncementModal = () => {
+    handleSaveConfig({
+      ...config,
+      announcementTitle: tempAnnTitle,
+      announcementText: tempAnnText,
+      announcementType: tempAnnType,
+    });
+    setAnnouncementModalVisible(false);
+  };
 
-        {/* Net Balance */}
-        <View style={[styles.metricCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.metricCardTop}>
-            <View style={[styles.metricIconWrap, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
-              <Ionicons name="bar-chart" size={18} color="#22C55E" />
-            </View>
-          </View>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Net Balance (To Receive)</Text>
-          <Text style={[styles.metricValue, { color: '#22C55E' }]}>{formatCurrency(netBalanceAmount)}</Text>
-          <Text style={styles.trendGreen}>↑ +24% from last month</Text>
-        </View>
-      </View>
+  const openBrandingModal = () => {
+    setTempBrandName(config.brandName);
+    setTempTagline(config.tagline);
+    setTempPhone(config.supportPhone);
+    setTempEmail(config.supportEmail);
+    setBrandingModalVisible(true);
+  };
+  const saveBrandingModal = () => {
+    handleSaveConfig({
+      ...config,
+      brandName: tempBrandName,
+      tagline: tempTagline,
+      supportPhone: tempPhone,
+      supportEmail: tempEmail,
+    });
+    setBrandingModalVisible(false);
+  };
 
-      {/* Charts Row: Money Flow (Bar) & Transaction Split (Donut) */}
-      <View style={[styles.chartsRow, isDesktop && { flexDirection: 'row' }]}>
-        {/* Money Flow Bar Chart */}
-        <View style={[styles.chartCard, isDesktop ? { flex: 1.4 } : { width: '100%' }, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: colors.textPrimary }]}>Money Flow</Text>
-            <View style={styles.filterPillSmall}>
-              <Text style={{ fontSize: 11, color: colors.textSecondary }}>Last 7 Days ▾</Text>
-            </View>
-          </View>
+  const openPaymentModal = () => {
+    setTempUpiId(config.defaultUpiId);
+    setTempMerchantName(config.defaultMerchantName);
+    setPaymentModalVisible(true);
+  };
+  const savePaymentModal = () => {
+    handleSaveConfig({
+      ...config,
+      defaultUpiId: tempUpiId,
+      defaultMerchantName: tempMerchantName,
+    });
+    setPaymentModalVisible(false);
+  };
 
-          {/* Legend */}
-          <View style={styles.legendRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} />
-              <Text style={{ fontSize: 11, color: colors.textSecondary }}>You Gave</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <View style={[styles.legendDot, { backgroundColor: '#22C55E' }]} />
-              <Text style={{ fontSize: 11, color: colors.textSecondary }}>You Got</Text>
-            </View>
-          </View>
+  const openMaintenanceModal = () => {
+    setTempMaintMsg(config.maintenanceMessage);
+    setMaintenanceModalVisible(true);
+  };
+  const saveMaintenanceModal = () => {
+    handleSaveConfig({
+      ...config,
+      maintenanceMessage: tempMaintMsg,
+    });
+    setMaintenanceModalVisible(false);
+  };
 
-          {/* SVG Bar Chart */}
-          <View style={styles.barChartWrapper}>
-            <Svg height="140" width="100%" viewBox="0 0 320 140">
-              {/* Grid lines */}
-              <Rect x="0" y="25" width="320" height="0.5" fill="#242220" />
-              <Rect x="0" y="65" width="320" height="0.5" fill="#242220" />
-              <Rect x="0" y="105" width="320" height="0.5" fill="#242220" />
+  const handleResetDefaults = () => {
+    Alert.alert(
+      'Reset All Feature Settings',
+      'Are you sure you want to restore all app feature settings to original defaults?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset to Defaults',
+          style: 'destructive',
+          onPress: () => handleSaveConfig(DEFAULT_FEATURE_CONFIG, 'Restored to defaults!'),
+        },
+      ]
+    );
+  };
 
-              {/* Bars */}
-              {barData.map((item, idx) => {
-                const xBase = 20 + idx * 42;
-                const gaveH = (item.gave / 60) * 85;
-                const gotH = (item.got / 60) * 85;
+  const handleToggleUserRole = async (targetUser: AdminUserProfile) => {
+    if (targetUser.email === 'abhidagar6319@gmail.com') {
+      Alert.alert('Protected', 'Primary Super Admin account role cannot be changed.');
+      return;
+    }
+    const newRole = targetUser.role === 'admin' ? 'user' : 'admin';
+    const res = await adminService.updateUserRole(targetUser.id, newRole);
+    if (!res.error) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === targetUser.id ? { ...u, role: newRole } : u))
+      );
+      Alert.alert('Success', `Updated ${targetUser.display_name || targetUser.email} to ${newRole}`);
+    } else {
+      Alert.alert('Error', res.error);
+    }
+  };
 
-                return (
-                  <G key={idx}>
-                    {/* Red Bar (You Gave) */}
-                    <Rect
-                      x={xBase}
-                      y={105 - gaveH}
-                      width="10"
-                      height={gaveH}
-                      rx="3"
-                      fill="#EF4444"
-                    />
-                    {/* Green Bar (You Got) */}
-                    <Rect
-                      x={xBase + 12}
-                      y={105 - gotH}
-                      width="10"
-                      height={gotH}
-                      rx="3"
-                      fill="#22C55E"
-                    />
-                  </G>
-                );
-              })}
-            </Svg>
-
-            {/* X-axis labels */}
-            <View style={styles.xAxisRow}>
-              {barData.map((b, i) => (
-                <Text key={i} style={[styles.xAxisLabel, { color: colors.textSecondary }]}>
-                  {b.day.split(' ')[0]}
-                </Text>
-              ))}
-            </View>
-          </View>
-        </View>
-
-        {/* Transaction Split Card */}
-        <View style={[styles.chartCard, isDesktop ? { flex: 1 } : { width: '100%', marginTop: 12 }, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: colors.textPrimary }]}>Transaction Split</Text>
-            <View style={styles.filterPillSmall}>
-              <Text style={{ fontSize: 11, color: colors.textSecondary }}>This Month ▾</Text>
-            </View>
-          </View>
-
-          <View style={styles.splitContentRow}>
-            {/* SVG Donut */}
-            <View style={styles.donutContainer}>
-              <Svg width="110" height="110" viewBox="0 0 110 110">
-                <Circle cx="55" cy="55" r="42" stroke="#242220" strokeWidth="14" fill="none" />
-                <Circle
-                  cx="55"
-                  cy="55"
-                  r="42"
-                  stroke="#FF7A00"
-                  strokeWidth="14"
-                  strokeDasharray="180 264"
-                  strokeLinecap="round"
-                  fill="none"
-                  transform="rotate(-90 55 55)"
-                />
-              </Svg>
-              <View style={styles.donutCenterLabel}>
-                <Text style={[styles.donutTotalVal, { color: colors.textPrimary }]}>{totalTransactionsCount}</Text>
-                <Text style={[styles.donutTotalSub, { color: colors.textSecondary }]}>Total</Text>
-              </View>
-            </View>
-
-            {/* Split Metrics */}
-            <View style={styles.splitMetricsCol}>
-              <View style={styles.splitMetricItem}>
-                <View style={[styles.splitIconCircle, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                  <Ionicons name="arrow-up" size={14} color="#EF4444" />
-                </View>
-                <View>
-                  <Text style={[styles.splitLabel, { color: colors.textSecondary }]}>You Gave</Text>
-                  <Text style={[styles.splitVal, { color: '#EF4444' }]}>{formatCurrency(totalGaveAmount)}</Text>
-                  <Text style={[styles.splitEntries, { color: colors.textSecondary }]}>298 entries</Text>
-                </View>
-              </View>
-
-              <View style={styles.splitMetricItem}>
-                <View style={[styles.splitIconCircle, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
-                  <Ionicons name="arrow-down" size={14} color="#22C55E" />
-                </View>
-                <View>
-                  <Text style={[styles.splitLabel, { color: colors.textSecondary }]}>You Got</Text>
-                  <Text style={[styles.splitVal, { color: '#22C55E' }]}>{formatCurrency(totalGotAmount)}</Text>
-                  <Text style={[styles.splitEntries, { color: colors.textSecondary }]}>134 entries</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Top Customers & Recent Transactions Row */}
-      <View style={[styles.tablesRow, isDesktop && { flexDirection: 'row' }]}>
-        {/* Top Customers (By Balance) */}
-        <View style={[styles.tableCard, isDesktop ? { flex: 1 } : { width: '100%' }, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.tableCardHeader}>
-            <Text style={[styles.tableCardTitle, { color: colors.textPrimary }]}>
-              Top Customers <Text style={{ color: '#FF7A00' }}>(By Balance)</Text>
-            </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Main', { screen: 'Customers' })}>
-              <Text style={styles.viewAllLink}>View All &gt;</Text>
-            </TouchableOpacity>
-          </View>
-
-          {topCustomers.map((cust, idx) => (
-            <TouchableOpacity
-              key={cust.id}
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate('CustomerDetail', { customerId: cust.id })}
-              style={styles.customerRow}
-            >
-              <Text style={[styles.rankNumber, { color: colors.textSecondary }]}>{idx + 1}</Text>
-              <View style={[styles.customerAvatarCircle, { backgroundColor: getInitialColor(idx) }]}>
-                <Text style={styles.customerAvatarInitial}>{(cust.name || 'C').charAt(0).toUpperCase()}</Text>
-              </View>
-              <View style={styles.customerInfoCol}>
-                <Text style={[styles.customerRowName, { color: colors.textPrimary }]}>{cust.name}</Text>
-                <Text style={[styles.customerRowPhone, { color: colors.textSecondary }]}>{cust.phone || '9876543210'}</Text>
-              </View>
-              <Text style={[styles.customerRowAmount, { color: colors.textPrimary }]}>
-                {formatCurrency(cust.displayAmount, true)}
-              </Text>
-              <View style={styles.toReceivePill}>
-                <Text style={styles.toReceivePillText}>To Receive</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Recent Transactions */}
-        <View style={[styles.tableCard, isDesktop ? { flex: 1 } : { width: '100%', marginTop: 12 }, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.tableCardHeader}>
-            <Text style={[styles.tableCardTitle, { color: colors.textPrimary }]}>Recent Transactions</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Main', { screen: 'Customers' })}>
-              <Text style={styles.viewAllLink}>View All &gt;</Text>
-            </TouchableOpacity>
-          </View>
-
-          {recentTransactions.map((tx, idx) => {
-            const isGave = tx.transaction_type === 'you_gave';
-            const color = isGave ? '#EF4444' : '#22C55E';
-            const sign = isGave ? '+ ' : '- ';
-
-            return (
-              <View key={tx.id} style={styles.txRow}>
-                <View style={[styles.txAvatarCircle, { backgroundColor: isGave ? '#EF4444' : '#22C55E' }]}>
-                  <Text style={styles.txAvatarInitial}>{isGave ? 'R' : 'S'}</Text>
-                </View>
-                <View style={styles.txInfoCol}>
-                  <Text style={[styles.txNameText, { color: colors.textPrimary }]}>
-                    {idx === 0 ? 'Shyam' : idx === 1 ? 'Rahul' : idx === 2 ? 'Amit' : 'Suresh'}
-                  </Text>
-                  <Text style={[styles.txNoteText, { color: colors.textSecondary }]}>
-                    {tx.note || (isGave ? 'Maine Diye' : 'Mujhe Mile')}
-                  </Text>
-                </View>
-                <Text style={[styles.txDateCol, { color: colors.textSecondary }]}>
-                  {formatDate(tx.transaction_date)}
-                </Text>
-                <Text style={[styles.txAmountText, { color }]}>
-                  {sign}{formatCurrency(tx.amount, true)}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Bottom Section: Expenses Overview, System Overview, Admin Quick Actions */}
-      <View style={[styles.bottomRow, isDesktop && { flexDirection: 'row' }]}>
-        {/* Expenses Overview */}
-        <View style={[styles.bottomCard, isDesktop ? { flex: 1 } : { width: '100%' }, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.tableCardHeader}>
-            <Text style={[styles.tableCardTitle, { color: colors.textPrimary }]}>Expenses Overview</Text>
-            <View style={styles.filterPillSmall}>
-              <Text style={{ fontSize: 11, color: colors.textSecondary }}>This Month ▾</Text>
-            </View>
-          </View>
-
-          <View style={styles.expensesContentRow}>
-            {/* Donut */}
-            <View style={styles.donutContainer}>
-              <Svg width="96" height="96" viewBox="0 0 100 100">
-                <Circle cx="50" cy="50" r="38" stroke="#FF7A00" strokeWidth="12" strokeDasharray="95 145" fill="none" transform="rotate(-90 50 50)" />
-                <Circle cx="50" cy="50" r="38" stroke="#22C55E" strokeWidth="12" strokeDasharray="60 180" fill="none" transform="rotate(50 50 50)" />
-                <Circle cx="50" cy="50" r="38" stroke="#8B5CF6" strokeWidth="12" strokeDasharray="36 204" fill="none" transform="rotate(145 50 50)" />
-              </Svg>
-              <View style={styles.donutCenterLabel}>
-                <Text style={[styles.donutTotalVal, { fontSize: 13, color: colors.textPrimary }]}>₹28,500</Text>
-                <Text style={[styles.donutTotalSub, { fontSize: 9, color: colors.textSecondary }]}>Total</Text>
-              </View>
-            </View>
-
-            {/* Category breakdown */}
-            <View style={styles.expensesLegendCol}>
-              {expenseCategories.map((cat, i) => (
-                <View key={i} style={styles.expenseLegendRow}>
-                  <View style={[styles.legendDot, { backgroundColor: cat.color }]} />
-                  <Text style={[styles.expenseCatName, { color: colors.textSecondary }]}>{cat.name}</Text>
-                  <Text style={[styles.expenseCatPct, { color: colors.textPrimary }]}>{cat.pct}</Text>
-                  <Text style={[styles.expenseCatAmt, { color: colors.textPrimary }]}>{cat.amount}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-
-        {/* System Overview */}
-        <View style={[styles.bottomCard, isDesktop ? { flex: 0.9 } : { width: '100%', marginTop: 12 }, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.tableCardTitle, { color: colors.textPrimary, marginBottom: 12 }]}>System Overview</Text>
-          <View style={styles.systemRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="people-outline" size={16} color={colors.primary} />
-              <Text style={{ fontSize: 13, color: colors.textSecondary }}>Total Users</Text>
-            </View>
-            <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textPrimary }}>4</Text>
-          </View>
-          <View style={styles.systemRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="storefront-outline" size={16} color={colors.primary} />
-              <Text style={{ fontSize: 13, color: colors.textSecondary }}>Active Customers</Text>
-            </View>
-            <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textPrimary }}>156</Text>
-          </View>
-          <View style={styles.systemRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="time-outline" size={16} color={colors.primary} />
-              <Text style={{ fontSize: 13, color: colors.textSecondary }}>Total Reminders</Text>
-            </View>
-            <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textPrimary }}>23</Text>
-          </View>
-          <View style={[styles.systemRow, { borderBottomWidth: 0 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="server-outline" size={16} color={colors.primary} />
-              <Text style={{ fontSize: 13, color: colors.textSecondary }}>Data Storage</Text>
-            </View>
-            <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textPrimary }}>78 MB</Text>
-          </View>
-        </View>
-
-        {/* Admin Quick Actions (6 Interactive Action Cards) */}
-        <View style={[styles.bottomCard, isDesktop ? { flex: 1.2 } : { width: '100%', marginTop: 12 }, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.tableCardTitle, { color: colors.textPrimary, marginBottom: 12 }]}>Admin Quick Actions</Text>
-          <View style={styles.actionButtonsGrid}>
-            {/* Add Customer */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate('AddCustomer')}
-              style={[styles.quickActionTile, { backgroundColor: colors.cardElevated, borderColor: colors.border }]}
-            >
-              <Ionicons name="person-add" size={18} color="#FF7A00" />
-              <Text style={[styles.quickActionTileText, { color: colors.textPrimary }]}>Add Customer</Text>
-            </TouchableOpacity>
-
-            {/* Add Expense */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate('AddExpense')}
-              style={[styles.quickActionTile, { backgroundColor: colors.cardElevated, borderColor: colors.border }]}
-            >
-              <Ionicons name="wallet" size={18} color="#EAB308" />
-              <Text style={[styles.quickActionTileText, { color: colors.textPrimary }]}>Add Expense</Text>
-            </TouchableOpacity>
-
-            {/* Manage Users */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setUsersModalVisible(true)}
-              style={[styles.quickActionTile, { backgroundColor: colors.cardElevated, borderColor: colors.border }]}
-            >
-              <Ionicons name="people" size={18} color="#3B82F6" />
-              <Text style={[styles.quickActionTileText, { color: colors.textPrimary }]}>Manage Users</Text>
-            </TouchableOpacity>
-
-            {/* Update Avatars */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setAvatarPickerVisible(true)}
-              style={[styles.quickActionTile, { backgroundColor: colors.cardElevated, borderColor: colors.border }]}
-            >
-              <Ionicons name="image" size={18} color="#FF7A00" />
-              <Text style={[styles.quickActionTileText, { color: colors.textPrimary }]}>Update Avatars</Text>
-            </TouchableOpacity>
-
-            {/* Edit Page Content */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setContentModalVisible(true)}
-              style={[styles.quickActionTile, { backgroundColor: colors.cardElevated, borderColor: colors.border }]}
-            >
-              <Ionicons name="document-text" size={18} color="#3B82F6" />
-              <Text style={[styles.quickActionTileText, { color: colors.textPrimary }]}>Edit Page Content</Text>
-            </TouchableOpacity>
-
-            {/* Update Logo */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setBrandModalVisible(true)}
-              style={[styles.quickActionTile, { backgroundColor: colors.cardElevated, borderColor: colors.border }]}
-            >
-              <Ionicons name="diamond" size={18} color="#FF7A00" />
-              <Text style={[styles.quickActionTileText, { color: colors.textPrimary }]}>Update Logo</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
+  const handleToggleUserStatus = async (targetUser: AdminUserProfile) => {
+    if (targetUser.email === 'abhidagar6319@gmail.com') {
+      Alert.alert('Protected', 'Primary Super Admin cannot be blocked.');
+      return;
+    }
+    const newStatus = targetUser.status === 'blocked' ? 'active' : 'blocked';
+    const res = await adminService.updateUserStatus(targetUser.id, newStatus);
+    if (!res.error) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === targetUser.id ? { ...u, status: newStatus } : u))
+      );
+      Alert.alert('Success', `User status changed to ${newStatus}`);
+    } else {
+      Alert.alert('Error', res.error);
+    }
+  };
 
   return (
-    <View style={[styles.mainScreenContainer, { backgroundColor: colors.background }]}>
-      {/* If Desktop: Render Desktop Shell with Left Sidebar */}
-      {isDesktop ? (
-        <View style={styles.desktopShell}>
-          {/* Left Navigation Sidebar */}
-          <View style={[styles.desktopSidebar, { backgroundColor: '#0B0F11', borderRightColor: '#1F1F1F' }]}>
-            {/* Brand Header */}
-            <View style={styles.sidebarBrandRow}>
-              <View style={styles.sidebarLogoBox}>
-                <Ionicons name="shapes" size={20} color="#FFFFFF" />
-              </View>
-              <Text style={styles.sidebarBrandTitle}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#0B0F11' : '#F4F6F8' }]}>
+      {/* Top Header Bar */}
+      <View style={[styles.topHeader, { backgroundColor: isDark ? '#11161A' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+        <View style={styles.topHeaderLeft}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Back"
+          >
+            <Ionicons name="arrow-back" size={22} color={isDark ? '#F1F5F9' : '#0F172A'} />
+          </TouchableOpacity>
+          <View style={styles.brandTitleCol}>
+            <View style={styles.brandTitleRow}>
+              <Text style={[styles.brandTitleText, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
                 Hisab<Text style={{ color: '#FF7A00' }}>Pro</Text>
               </Text>
+              <View style={styles.adminCrownBadge}>
+                <Ionicons name="shield-checkmark" size={12} color="#FF7A00" />
+                <Text style={styles.adminCrownText}>FEATURE CONTROL</Text>
+              </View>
+            </View>
+            <Text style={[styles.brandSubtitle, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+              Master Application Settings & Feature Management
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.topHeaderRight}>
+          {saveSuccessMessage && (
+            <View style={styles.savedToastBadge}>
+              <Ionicons name="checkmark-circle" size={15} color="#10B981" />
+              <Text style={styles.savedToastText}>{saveSuccessMessage}</Text>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[styles.refreshBtn, { backgroundColor: isDark ? '#1C242B' : '#E2E8F0' }]}
+            onPress={loadData}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#FF7A00" />
+            ) : (
+              <Ionicons name="refresh" size={18} color={isDark ? '#CBD5E1' : '#334155'} />
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.adminProfileChip}>
+            <View style={styles.adminChipAvatar}>
+              <Text style={styles.adminChipInitial}>A</Text>
+            </View>
+            {isDesktop && (
+              <View>
+                <Text style={[styles.adminChipName, { color: isDark ? '#F1F5F9' : '#0F172A' }]}>
+                  Abhishek Dagar
+                </Text>
+                <Text style={styles.adminChipEmail}>abhidagar6319@gmail.com</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+
+      {/* Main Content Area */}
+      <ScrollView
+        style={styles.mainScrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.contentWrapper, { maxWidth: isDesktop ? 1200 : '100%' }]}>
+
+          {/* System Health / Status Banner */}
+          <View style={[styles.healthBanner, { backgroundColor: isDark ? '#141B20' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
+            <View style={styles.healthItem}>
+              <View style={[styles.healthDot, { backgroundColor: '#10B981' }]} />
+              <View>
+                <Text style={[styles.healthLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>Engine Status</Text>
+                <Text style={[styles.healthValue, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>ONLINE • Active</Text>
+              </View>
             </View>
 
-            {/* Main Nav Items */}
-            <View style={styles.sidebarNavList}>
-              {[
-                { name: 'Dashboard' as const, icon: 'grid-outline', activeIcon: 'grid' },
-                { name: 'Customers' as const, icon: 'people-outline', activeIcon: 'people' },
-                { name: 'Transactions' as const, icon: 'receipt-outline', activeIcon: 'receipt' },
-                { name: 'Expenses' as const, icon: 'wallet-outline', activeIcon: 'wallet' },
-                { name: 'Reports' as const, icon: 'bar-chart-outline', activeIcon: 'bar-chart' },
-                { name: 'Reminders' as const, icon: 'notifications-outline', activeIcon: 'notifications' },
-                { name: 'Users' as const, icon: 'person-outline', activeIcon: 'person' },
-              ].map((item) => {
-                const isActive = activeSidebarTab === item.name;
-                return (
-                  <TouchableOpacity
-                    key={item.name}
-                    activeOpacity={0.8}
-                    onPress={() => handleSidebarNav(item.name)}
+            <View style={styles.healthDivider} />
+
+            <View style={styles.healthItem}>
+              <Ionicons name="cloud-done-outline" size={18} color="#FF7A00" />
+              <View style={{ marginLeft: 8 }}>
+                <Text style={[styles.healthLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>Supabase Cloud</Text>
+                <Text style={[styles.healthValue, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>Connected (Realtime)</Text>
+              </View>
+            </View>
+
+            <View style={styles.healthDivider} />
+
+            <View style={styles.healthItem}>
+              <Ionicons name="people-outline" size={18} color="#3B82F6" />
+              <View style={{ marginLeft: 8 }}>
+                <Text style={[styles.healthLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>Platform Users</Text>
+                <Text style={[styles.healthValue, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>{stats.totalUsers} Registered</Text>
+              </View>
+            </View>
+
+            <View style={styles.healthDivider} />
+
+            <View style={styles.healthItem}>
+              <Ionicons name="phone-portrait-outline" size={18} color="#8B5CF6" />
+              <View style={{ marginLeft: 8 }}>
+                <Text style={[styles.healthLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>App Version</Text>
+                <Text style={[styles.healthValue, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>v{config.appVersion} (Latest)</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Navigation Category Tabs */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.tabsContainer}
+            contentContainerStyle={styles.tabsContent}
+          >
+            {[
+              { key: 'features', label: 'Feature Switches', icon: 'toggle-outline' },
+              { key: 'announcement', label: 'In-App Announcement', icon: 'megaphone-outline' },
+              { key: 'security', label: 'Security & Maintenance', icon: 'shield-outline' },
+              { key: 'branding', label: 'Brand & Organization', icon: 'business-outline' },
+              { key: 'users', label: 'Users & Admins', icon: 'people-outline' },
+            ].map((tab) => {
+              const active = activeTab === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[
+                    styles.tabButton,
+                    active && styles.tabButtonActive,
+                    {
+                      backgroundColor: active
+                        ? '#FF7A00'
+                        : isDark
+                        ? '#161D22'
+                        : '#FFFFFF',
+                      borderColor: active
+                        ? '#FF7A00'
+                        : isDark
+                        ? 'rgba(255,255,255,0.06)'
+                        : 'rgba(0,0,0,0.08)',
+                    },
+                  ]}
+                  onPress={() => setActiveTab(tab.key as TabKey)}
+                >
+                  <Ionicons
+                    name={tab.icon as any}
+                    size={16}
+                    color={active ? '#0B0F11' : isDark ? '#94A3B8' : '#64748B'}
+                  />
+                  <Text
                     style={[
-                      styles.sidebarNavItem,
-                      isActive && { backgroundColor: '#FF7A00' },
+                      styles.tabButtonText,
+                      { color: active ? '#0B0F11' : isDark ? '#E2E8F0' : '#334155', fontWeight: active ? '800' : '600' },
                     ]}
                   >
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {/* TAB 1: FEATURE SWITCHES */}
+          {activeTab === 'features' && (
+            <View style={styles.gridContainer}>
+              {/* WhatsApp Engine Card */}
+              <View style={[styles.featureCard, { backgroundColor: isDark ? '#141B20' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.cardIconBox, { backgroundColor: 'rgba(37, 211, 102, 0.15)' }]}>
+                    <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      WhatsApp Share & Reminder
+                    </Text>
+                    <Text style={[styles.cardDesc, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Manage customer payment reminders & direct WhatsApp statement dispatch
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardDivider} />
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Enable WhatsApp Actions
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Allows merchants to trigger 1-tap reminders & reports via WhatsApp
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.whatsappRemindersEnabled}
+                    onValueChange={() => toggleFeature('whatsappRemindersEnabled')}
+                    trackColor={{ false: '#334155', true: '#25D366' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Direct Payment Reminder Mode
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      ON: Sends formatted payment balance text directly (no download needed)
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.whatsappDirectShare}
+                    onValueChange={() => toggleFeature('whatsappDirectShare')}
+                    trackColor={{ false: '#334155', true: '#FF7A00' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.outlineActionBtn, { borderColor: '#25D366' }]}
+                  onPress={openTemplateModal}
+                >
+                  <Ionicons name="pencil-outline" size={16} color="#25D366" />
+                  <Text style={[styles.outlineActionBtnText, { color: '#25D366' }]}>
+                    Customize WhatsApp Reminder Template
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* PDF Engine Card */}
+              <View style={[styles.featureCard, { backgroundColor: isDark ? '#141B20' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.cardIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                    <Ionicons name="document-text" size={22} color="#EF4444" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      PDF Statements & Ledger Engine
+                    </Text>
+                    <Text style={[styles.cardDesc, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Controls high-res PDF generation, layout headers, and account balance summaries
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardDivider} />
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Allow PDF Generation & Downloads
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Global switch to enable or disable PDF exports across all platforms
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.pdfGenerationEnabled}
+                    onValueChange={() => toggleFeature('pdfGenerationEnabled')}
+                    trackColor={{ false: '#334155', true: '#EF4444' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Show Business Logo on PDF
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Renders HisabPro official header badge and company branding
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.pdfShowLogo}
+                    onValueChange={() => toggleFeature('pdfShowLogo')}
+                    trackColor={{ false: '#334155', true: '#FF7A00' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Include UPI Payment QR Code in PDF
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Embeds instant scan-to-pay QR code for customer payments
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.pdfShowUpiQr}
+                    onValueChange={() => toggleFeature('pdfShowUpiQr')}
+                    trackColor={{ false: '#334155', true: '#10B981' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      HisabPro Official Watermark & Verification
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Adds "Generated via HisabPro" verified trust footer
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.pdfShowWatermark}
+                    onValueChange={() => toggleFeature('pdfShowWatermark')}
+                    trackColor={{ false: '#334155', true: '#FF7A00' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+              </View>
+
+              {/* UPI Payments Card */}
+              <View style={[styles.featureCard, { backgroundColor: isDark ? '#141B20' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.cardIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+                    <Ionicons name="card" size={22} color="#3B82F6" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      UPI Payment Gateway & QR
+                    </Text>
+                    <Text style={[styles.cardDesc, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Set default merchant collection UPI ID, payee name & collection links
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardDivider} />
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Enable UPI Collections
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Allows customers to scan UPI QR or click to pay via GPay, PhonePe, Paytm
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.upiPaymentsEnabled}
+                    onValueChange={() => toggleFeature('upiPaymentsEnabled')}
+                    trackColor={{ false: '#334155', true: '#3B82F6' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={[styles.infoDisplayBox, { backgroundColor: isDark ? '#1C242B' : '#F1F5F9' }]}>
+                  <View style={styles.infoDisplayRow}>
+                    <Text style={[styles.infoDisplayKey, { color: isDark ? '#94A3B8' : '#64748B' }]}>Merchant UPI ID:</Text>
+                    <Text style={[styles.infoDisplayVal, { color: isDark ? '#F1F5F9' : '#0F172A' }]}>{config.defaultUpiId}</Text>
+                  </View>
+                  <View style={styles.infoDisplayRow}>
+                    <Text style={[styles.infoDisplayKey, { color: isDark ? '#94A3B8' : '#64748B' }]}>Payee Name:</Text>
+                    <Text style={[styles.infoDisplayVal, { color: isDark ? '#F1F5F9' : '#0F172A' }]}>{config.defaultMerchantName}</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.outlineActionBtn, { borderColor: '#3B82F6' }]}
+                  onPress={openPaymentModal}
+                >
+                  <Ionicons name="settings-outline" size={16} color="#3B82F6" />
+                  <Text style={[styles.outlineActionBtnText, { color: '#3B82F6' }]}>
+                    Edit UPI ID & Payee Settings
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 3D Pixar Avatars Card */}
+              <View style={[styles.featureCard, { backgroundColor: isDark ? '#141B20' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.cardIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                    <Ionicons name="happy" size={22} color="#F59E0B" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      3D Avatars & Profile Media
+                    </Text>
+                    <Text style={[styles.cardDesc, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Exclusive 3D Pixar cartoon avatar suite & user image customizations
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardDivider} />
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      3D Pixar Avatars Suite
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Allows users to choose from modern 3D Disney/Pixar styled portraits
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.avatars3dEnabled}
+                    onValueChange={() => toggleFeature('avatars3dEnabled')}
+                    trackColor={{ false: '#334155', true: '#F59E0B' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Allow Custom Photo Uploads
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Users can upload their personal photo from camera/gallery
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.allowCustomAvatarUpload}
+                    onValueChange={() => toggleFeature('allowCustomAvatarUpload')}
+                    trackColor={{ false: '#334155', true: '#FF7A00' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.outlineActionBtn, { borderColor: '#F59E0B' }]}
+                  onPress={() => setAvatarPickerVisible(true)}
+                >
+                  <Ionicons name="images-outline" size={16} color="#F59E0B" />
+                  <Text style={[styles.outlineActionBtnText, { color: '#F59E0B' }]}>
+                    Preview & Test 3D Avatar Gallery
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* TAB 2: IN-APP ANNOUNCEMENT */}
+          {activeTab === 'announcement' && (
+            <View style={styles.singleColContainer}>
+              <View style={[styles.featureCard, { backgroundColor: isDark ? '#141B20' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.cardIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+                    <Ionicons name="megaphone" size={22} color="#3B82F6" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Broadcast Announcement Banner
+                    </Text>
+                    <Text style={[styles.cardDesc, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Display alerts, system updates, new feature notices to all app users in real-time
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardDivider} />
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Activate Global Banner
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      When active, shows the notice card at the top of the user's home screen
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.announcementActive}
+                    onValueChange={() => toggleFeature('announcementActive')}
+                    trackColor={{ false: '#334155', true: '#3B82F6' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                {/* Live Preview Box */}
+                <Text style={[styles.sectionSubtitle, { color: isDark ? '#94A3B8' : '#64748B', marginTop: 14 }]}>
+                  LIVE USER PREVIEW:
+                </Text>
+                <View
+                  style={[
+                    styles.announcementPreviewBox,
+                    config.announcementType === 'info' && { backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: '#3B82F6' },
+                    config.announcementType === 'success' && { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: '#10B981' },
+                    config.announcementType === 'warning' && { backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: '#F59E0B' },
+                  ]}
+                >
+                  <View style={styles.annPreviewHeader}>
                     <Ionicons
-                      name={isActive ? (item.activeIcon as any) : (item.icon as any)}
-                      size={18}
-                      color={isActive ? '#0B0F11' : '#94A3B8'}
+                      name={
+                        config.announcementType === 'info'
+                          ? 'information-circle'
+                          : config.announcementType === 'success'
+                          ? 'checkmark-circle'
+                          : 'warning'
+                      }
+                      size={20}
+                      color={
+                        config.announcementType === 'info'
+                          ? '#3B82F6'
+                          : config.announcementType === 'success'
+                          ? '#10B981'
+                          : '#F59E0B'
+                      }
                     />
                     <Text
                       style={[
-                        styles.sidebarNavText,
-                        { color: isActive ? '#0B0F11' : '#94A3B8', fontWeight: isActive ? '800' : '600' },
+                        styles.annPreviewTitle,
+                        {
+                          color:
+                            config.announcementType === 'info'
+                              ? '#3B82F6'
+                              : config.announcementType === 'success'
+                              ? '#10B981'
+                              : '#F59E0B',
+                        },
                       ]}
                     >
-                      {item.name}
+                      {config.announcementTitle}
                     </Text>
-                  </TouchableOpacity>
-                );
-              })}
-
-              {/* ADMIN TOOLS Heading */}
-              <View style={styles.sidebarSectionDivider}>
-                <Text style={styles.sidebarSectionHeader}>ADMIN TOOLS</Text>
-                <View style={styles.sidebarDividerLine} />
-              </View>
-
-              {/* Admin Tools List */}
-              <TouchableOpacity activeOpacity={0.7} onPress={() => setAvatarPickerVisible(true)} style={styles.sidebarNavItem}>
-                <Ionicons name="images-outline" size={17} color="#94A3B8" />
-                <Text style={[styles.sidebarNavText, { color: '#94A3B8' }]}>Update Avatars</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity activeOpacity={0.7} onPress={() => setContentModalVisible(true)} style={styles.sidebarNavItem}>
-                <Ionicons name="document-text-outline" size={17} color="#94A3B8" />
-                <Text style={[styles.sidebarNavText, { color: '#94A3B8' }]}>Page Content</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity activeOpacity={0.7} onPress={() => setBrandModalVisible(true)} style={styles.sidebarNavItem}>
-                <Ionicons name="diamond-outline" size={17} color="#94A3B8" />
-                <Text style={[styles.sidebarNavText, { color: '#94A3B8' }]}>Brand & Logo</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity activeOpacity={0.7} onPress={() => setUsersModalVisible(true)} style={styles.sidebarNavItem}>
-                <Ionicons name="shield-checkmark-outline" size={17} color="#94A3B8" />
-                <Text style={[styles.sidebarNavText, { color: '#94A3B8' }]}>Admin Management</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate('Main', { screen: 'Profile' })} style={styles.sidebarNavItem}>
-                <Ionicons name="settings-outline" size={17} color="#94A3B8" />
-                <Text style={[styles.sidebarNavText, { color: '#94A3B8' }]}>Settings</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Sidebar Footer */}
-            <View style={styles.sidebarFooter}>
-              <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '700' }}>v1.0.0</Text>
-              <View style={styles.sidebarCollapseBtn}>
-                <Ionicons name="chevron-back" size={14} color="#94A3B8" />
-              </View>
-            </View>
-          </View>
-
-          {/* Right Main Panel */}
-          <View style={styles.desktopMainPanel}>
-            {/* Top Bar with Search & User Profile */}
-            <View style={[styles.desktopTopBar, { backgroundColor: '#0B0F11', borderBottomColor: '#1F1F1F' }]}>
-              {/* Search Bar */}
-              <View style={styles.desktopSearchBox}>
-                <Ionicons name="search" size={16} color="#94A3B8" />
-                <TextInput
-                  placeholder="Search customers, transactions, expenses..."
-                  placeholderTextColor="#64748B"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  style={styles.desktopSearchInput}
-                />
-              </View>
-
-              {/* Notification & User Profile Badge */}
-              <View style={styles.desktopTopRight}>
-                <TouchableOpacity style={styles.bellBtn}>
-                  <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
-                  <View style={styles.redDot} />
-                </TouchableOpacity>
-
-                <View style={styles.adminProfileChip}>
-                  <View style={styles.topBarAvatar}>
-                    <Ionicons name="person" size={16} color="#FF7A00" />
                   </View>
-                  <View>
-                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF' }}>Abhishek Dagar</Text>
-                    <View style={styles.adminTagRow}>
-                      <Text style={{ fontSize: 9, fontWeight: '900', color: '#FF7A00' }}>👑 ADMIN</Text>
-                    </View>
-                  </View>
+                  <Text style={[styles.annPreviewText, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+                    {config.announcementText}
+                  </Text>
                 </View>
-              </View>
-            </View>
 
-            {/* Scrollable Dashboard Body */}
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 24 }}>
-              {renderDashboardContent()}
-            </ScrollView>
-          </View>
-        </View>
-      ) : (
-        /* If Mobile / Tablet: Render Exact Mobile UI */
-        <View style={{ flex: 1 }}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.mobileScrollContent}>
-            {renderDashboardContent()}
-          </ScrollView>
-          <BottomNavBar activeTab="Profile" />
-        </View>
-      )}
-
-      {/* Time Filter Modal */}
-      <Modal visible={timeFilterModal} transparent animationType="fade">
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setTimeFilterModal(false)}
-          style={styles.modalBackdrop}
-        >
-          <View style={[styles.filterModalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Reporting Timeframe</Text>
-            {[
-              { id: 'today' as const, label: '📅 Today' },
-              { id: 'week' as const, label: '📅 This Week' },
-              { id: 'month' as const, label: '📅 This Month (Default)' },
-              { id: 'year' as const, label: '📅 This Year' },
-            ].map((opt) => (
-              <TouchableOpacity
-                key={opt.id}
-                onPress={() => {
-                  setTimeFilter(opt.id);
-                  setTimeFilterModal(false);
-                }}
-                style={[
-                  styles.filterOptionRow,
-                  timeFilter === opt.id && { backgroundColor: 'rgba(255, 122, 0, 0.15)' },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    { color: timeFilter === opt.id ? colors.primary : colors.textPrimary },
-                  ]}
+                <TouchableOpacity
+                  style={[styles.primaryActionBtn, { backgroundColor: '#3B82F6' }]}
+                  onPress={openAnnouncementModal}
                 >
-                  {opt.label}
+                  <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+                  <Text style={styles.primaryActionBtnText}>Edit Announcement Text & Color</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* TAB 3: SECURITY & MAINTENANCE */}
+          {activeTab === 'security' && (
+            <View style={styles.gridContainer}>
+              {/* Maintenance Mode Card */}
+              <View style={[styles.featureCard, { backgroundColor: isDark ? '#141B20' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.cardIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                    <Ionicons name="construct" size={22} color="#EF4444" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Maintenance Lockdown
+                    </Text>
+                    <Text style={[styles.cardDesc, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Take the app offline for routine database upgrades or server updates
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardDivider} />
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: '#EF4444' }]}>
+                      Lock App for Maintenance
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Normal users will see a maintenance screen. Admins still have full access.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.maintenanceMode}
+                    onValueChange={() => toggleFeature('maintenanceMode')}
+                    trackColor={{ false: '#334155', true: '#EF4444' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.outlineActionBtn, { borderColor: '#EF4444' }]}
+                  onPress={openMaintenanceModal}
+                >
+                  <Ionicons name="chatbubble-ellipses-outline" size={16} color="#EF4444" />
+                  <Text style={[styles.outlineActionBtnText, { color: '#EF4444' }]}>
+                    Edit Maintenance Screen Message
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Version & Access Security */}
+              <View style={[styles.featureCard, { backgroundColor: isDark ? '#141B20' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.cardIconBox, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                    <Ionicons name="shield-checkmark" size={22} color="#10B981" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Access & App Locks
+                    </Text>
+                    <Text style={[styles.cardDesc, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      User registration gate, biometric passcodes & force updates
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardDivider} />
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Open New Registrations
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Allows new users to sign up with mobile OTP / Email
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.allowNewRegistrations}
+                    onValueChange={() => toggleFeature('allowNewRegistrations')}
+                    trackColor={{ false: '#334155', true: '#10B981' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Biometric App Lock Feature
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Users can secure khata ledgers with Fingerprint / PIN
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.biometricLockEnabled}
+                    onValueChange={() => toggleFeature('biometricLockEnabled')}
+                    trackColor={{ false: '#334155', true: '#FF7A00' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[styles.switchTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Force Minimum Version Check
+                    </Text>
+                    <Text style={[styles.switchSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Requires users to update if on version lower than v{config.minRequiredVersion}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={config.forceUpdate}
+                    onValueChange={() => toggleFeature('forceUpdate')}
+                    trackColor={{ false: '#334155', true: '#EF4444' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* TAB 4: BRAND & ORGANIZATION */}
+          {activeTab === 'branding' && (
+            <View style={styles.singleColContainer}>
+              <View style={[styles.featureCard, { backgroundColor: isDark ? '#141B20' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.cardIconBox, { backgroundColor: 'rgba(255, 122, 0, 0.15)' }]}>
+                    <Ionicons name="sparkles" size={22} color="#FF7A00" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Brand Identity & Support Details
+                    </Text>
+                    <Text style={[styles.cardDesc, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Customize company name, tagline, official support phone, and email across the entire app
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardDivider} />
+
+                <View style={styles.brandInfoGrid}>
+                  <View style={[styles.brandInfoItem, { backgroundColor: isDark ? '#1C242B' : '#F1F5F9' }]}>
+                    <Text style={[styles.brandInfoKey, { color: isDark ? '#94A3B8' : '#64748B' }]}>Application Name</Text>
+                    <Text style={[styles.brandInfoVal, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>{config.brandName}</Text>
+                  </View>
+
+                  <View style={[styles.brandInfoItem, { backgroundColor: isDark ? '#1C242B' : '#F1F5F9' }]}>
+                    <Text style={[styles.brandInfoKey, { color: isDark ? '#94A3B8' : '#64748B' }]}>Brand Tagline</Text>
+                    <Text style={[styles.brandInfoVal, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>{config.tagline}</Text>
+                  </View>
+
+                  <View style={[styles.brandInfoItem, { backgroundColor: isDark ? '#1C242B' : '#F1F5F9' }]}>
+                    <Text style={[styles.brandInfoKey, { color: isDark ? '#94A3B8' : '#64748B' }]}>Support Phone / WhatsApp</Text>
+                    <Text style={[styles.brandInfoVal, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>{config.supportPhone}</Text>
+                  </View>
+
+                  <View style={[styles.brandInfoItem, { backgroundColor: isDark ? '#1C242B' : '#F1F5F9' }]}>
+                    <Text style={[styles.brandInfoKey, { color: isDark ? '#94A3B8' : '#64748B' }]}>Official Contact Email</Text>
+                    <Text style={[styles.brandInfoVal, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>{config.supportEmail}</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.primaryActionBtn, { backgroundColor: '#FF7A00', marginTop: 18 }]}
+                  onPress={openBrandingModal}
+                >
+                  <Ionicons name="pencil" size={18} color="#0B0F11" />
+                  <Text style={[styles.primaryActionBtnText, { color: '#0B0F11' }]}>
+                    Edit Brand & Support Details
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* TAB 5: USERS & ADMINS */}
+          {activeTab === 'users' && (
+            <View style={styles.singleColContainer}>
+              <View style={[styles.featureCard, { backgroundColor: isDark ? '#141B20' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.cardIconBox, { backgroundColor: 'rgba(255, 122, 0, 0.15)' }]}>
+                    <Ionicons name="people" size={22} color="#FF7A00" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      Platform Accounts & Roles
+                    </Text>
+                    <Text style={[styles.cardDesc, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      Manage authorized admin accounts, user access status, and platform members
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardDivider} />
+
+                <View style={styles.userListCol}>
+                  {users.map((item) => {
+                    const isSuperAdmin = item.email === 'abhidagar6319@gmail.com';
+                    return (
+                      <View
+                        key={item.id}
+                        style={[
+                          styles.userCardItem,
+                          {
+                            backgroundColor: isDark ? '#1C242B' : '#F8FAFC',
+                            borderColor: isSuperAdmin ? '#FF7A00' : isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
+                          },
+                        ]}
+                      >
+                        <View style={styles.userCardLeft}>
+                          <View
+                            style={[
+                              styles.userAvatarBox,
+                              { backgroundColor: isSuperAdmin ? '#FF7A00' : '#3B82F6' },
+                            ]}
+                          >
+                            <Text style={styles.userAvatarText}>
+                              {(item.display_name || item.email || 'U')[0].toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <Text style={[styles.userNameText, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                                {item.display_name || 'Registered User'}
+                              </Text>
+                              {isSuperAdmin ? (
+                                <View style={styles.superAdminTag}>
+                                  <Text style={styles.superAdminTagText}>👑 SUPER ADMIN</Text>
+                                </View>
+                              ) : item.role === 'admin' ? (
+                                <View style={styles.adminTag}>
+                                  <Text style={styles.adminTagText}>ADMIN</Text>
+                                </View>
+                              ) : null}
+                            </View>
+                            <Text style={[styles.userEmailText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                              {item.email || item.phone || 'No email provided'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.userCardRight}>
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              {
+                                backgroundColor: item.status === 'blocked' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.statusBadgeText,
+                                { color: item.status === 'blocked' ? '#EF4444' : '#10B981' },
+                              ]}
+                            >
+                              {item.status === 'blocked' ? 'BLOCKED' : 'ACTIVE'}
+                            </Text>
+                          </View>
+
+                          {!isSuperAdmin && (
+                            <View style={{ flexDirection: 'row', gap: 6 }}>
+                              <TouchableOpacity
+                                style={[styles.userActionMiniBtn, { borderColor: '#3B82F6' }]}
+                                onPress={() => handleToggleUserRole(item)}
+                              >
+                                <Text style={[styles.userActionMiniBtnText, { color: '#3B82F6' }]}>
+                                  {item.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}
+                                </Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                style={[
+                                  styles.userActionMiniBtn,
+                                  { borderColor: item.status === 'blocked' ? '#10B981' : '#EF4444' },
+                                ]}
+                                onPress={() => handleToggleUserStatus(item)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.userActionMiniBtnText,
+                                    { color: item.status === 'blocked' ? '#10B981' : '#EF4444' },
+                                  ]}
+                                >
+                                  {item.status === 'blocked' ? 'Unblock' : 'Block'}
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Quick System Tools Bottom Row */}
+          <View style={[styles.quickToolsBox, { backgroundColor: isDark ? '#141B20' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+            <View style={styles.quickToolsLeft}>
+              <Ionicons name="hardware-chip-outline" size={20} color="#FF7A00" />
+              <View style={{ marginLeft: 10 }}>
+                <Text style={[styles.quickToolsTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                  System Maintenance & Global Reset
                 </Text>
-                {timeFilter === opt.id && <Ionicons name="checkmark" size={18} color={colors.primary} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Manage Users Modal */}
-      <Modal visible={usersModalVisible} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.fullModalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                User <Text style={{ color: colors.primary }}>Management</Text>
-              </Text>
-              <TouchableOpacity onPress={() => setUsersModalVisible(false)}>
-                <Ionicons name="close-circle" size={24} color={colors.textSecondary} />
+                <Text style={[styles.quickToolsSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                  Instantly synchronize settings with cloud storage or restore factory defaults
+                </Text>
+              </View>
+            </View>
+            <View style={styles.quickToolsRight}>
+              <TouchableOpacity
+                style={[styles.resetDefaultsBtn, { borderColor: 'rgba(239, 68, 68, 0.4)' }]}
+                onPress={handleResetDefaults}
+              >
+                <Ionicons name="refresh-circle-outline" size={16} color="#EF4444" />
+                <Text style={styles.resetDefaultsText}>Reset to Factory Defaults</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </ScrollView>
 
-            <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 12 }}>
-              Manage registered merchants, monitor active sessions, and configure permissions.
+      {/* MODAL 1: Customize WhatsApp Template */}
+      <Modal visible={templateModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: isDark ? '#141B20' : '#FFFFFF' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                WhatsApp Reminder Message
+              </Text>
+              <TouchableOpacity onPress={() => setTemplateModalVisible(false)}>
+                <Ionicons name="close" size={22} color={isDark ? '#94A3B8' : '#64748B'} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.modalDesc, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+              Dynamic tags available: {'{customer_name}'}, {'{amount}'}, {'{business_name}'}
             </Text>
-
-            <View style={[styles.userListItem, { backgroundColor: colors.cardElevated, borderColor: colors.border }]}>
-              <View style={styles.userListLeft}>
-                <View style={styles.superAdminAvatar}>
-                  <Text style={{ color: '#FFF', fontWeight: '900' }}>AD</Text>
-                </View>
-                <View>
-                  <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textPrimary }}>Abhishek Dagar</Text>
-                  <Text style={{ fontSize: 12, color: colors.textSecondary }}>abhidagar6319@gmail.com</Text>
-                  <Text style={{ fontSize: 11, color: colors.primary, marginTop: 2 }}>👑 Super Admin • Protected</Text>
-                </View>
-              </View>
-              <View style={[styles.activePill, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
-                <Text style={{ color: '#22C55E', fontWeight: '800', fontSize: 11 }}>Active</Text>
-              </View>
+            <TextInput
+              style={[
+                styles.modalTextArea,
+                {
+                  backgroundColor: isDark ? '#1C242B' : '#F1F5F9',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                },
+              ]}
+              value={tempTemplate}
+              onChangeText={setTempTemplate}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalCancelBtn, { backgroundColor: isDark ? '#1C242B' : '#E2E8F0' }]}
+                onPress={() => setTemplateModalVisible(false)}
+              >
+                <Text style={[styles.modalCancelText, { color: isDark ? '#E2E8F0' : '#334155' }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={saveTemplateModal}>
+                <Text style={styles.modalSaveText}>Save Template</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Brand & Logo Modal */}
-      <Modal visible={brandModalVisible} animationType="fade" transparent>
-        <TouchableOpacity activeOpacity={1} onPress={() => setBrandModalVisible(false)} style={styles.modalBackdrop}>
-          <View style={[styles.brandModalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Brand & Logo Settings</Text>
-            <View style={styles.brandPreviewBox}>
-              <View style={styles.logoBadgeBig}>
-                <Ionicons name="shapes" size={32} color="#FFFFFF" />
-              </View>
-              <Text style={{ fontSize: 22, fontWeight: '900', color: colors.textPrimary, marginTop: 10 }}>
-                Hisab<Text style={{ color: '#FF7A00' }}>Pro</Text>
+      {/* MODAL 2: Edit In-App Announcement */}
+      <Modal visible={announcementModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: isDark ? '#141B20' : '#FFFFFF' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                Edit In-App Announcement
               </Text>
-              <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
-                Simple Accounts. Better Business.
-              </Text>
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                setBrandModalVisible(false);
-                Alert.alert('Brand Logo', 'HisabPro official vector logo branding is active platform-wide.');
-              }}
-              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-            >
-              <Text style={{ fontWeight: '800', color: '#0B0F11' }}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Edit Page Content Modal */}
-      <Modal visible={contentModalVisible} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.fullModalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Edit Page Content</Text>
-              <TouchableOpacity onPress={() => setContentModalVisible(false)}>
-                <Ionicons name="close-circle" size={24} color={colors.textSecondary} />
+              <TouchableOpacity onPress={() => setAnnouncementModalVisible(false)}>
+                <Ionicons name="close" size={22} color={isDark ? '#94A3B8' : '#64748B'} />
               </TouchableOpacity>
             </View>
 
-            <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 14 }}>
-              Customize your app brand name, tagline, and customer statements header.
-            </Text>
-
-            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>App / Business Name</Text>
+            <Text style={[styles.inputLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>BANNER TITLE</Text>
             <TextInput
-              value={businessName}
-              onChangeText={setBusinessName}
-              style={[styles.modalTextInput, { backgroundColor: colors.cardElevated, color: colors.textPrimary, borderColor: colors.border }]}
+              style={[
+                styles.modalInput,
+                {
+                  backgroundColor: isDark ? '#1C242B' : '#F1F5F9',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                },
+              ]}
+              value={tempAnnTitle}
+              onChangeText={setTempAnnTitle}
+              placeholder="e.g. 🎉 Special Update"
+              placeholderTextColor="#64748B"
             />
 
-            <Text style={[styles.inputLabel, { color: colors.textSecondary, marginTop: 12 }]}>Brand Tagline</Text>
+            <Text style={[styles.inputLabel, { color: isDark ? '#94A3B8' : '#64748B', marginTop: 10 }]}>MESSAGE</Text>
             <TextInput
-              value={businessTagline}
-              onChangeText={setBusinessTagline}
-              style={[styles.modalTextInput, { backgroundColor: colors.cardElevated, color: colors.textPrimary, borderColor: colors.border }]}
+              style={[
+                styles.modalTextArea,
+                {
+                  backgroundColor: isDark ? '#1C242B' : '#F1F5F9',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                },
+              ]}
+              value={tempAnnText}
+              onChangeText={setTempAnnText}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
             />
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                setContentModalVisible(false);
-                Alert.alert('Saved', 'Page content updated successfully.');
-              }}
-              style={[styles.saveBtn, { backgroundColor: colors.primary, marginTop: 18 }]}
-            >
-              <Text style={{ fontWeight: '800', color: '#0B0F11' }}>Save Changes</Text>
-            </TouchableOpacity>
+            <Text style={[styles.inputLabel, { color: isDark ? '#94A3B8' : '#64748B', marginTop: 10 }]}>BANNER TYPE</Text>
+            <View style={styles.typeSelectorRow}>
+              {(['info', 'success', 'warning'] as const).map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    styles.typeSelectorBtn,
+                    tempAnnType === t && styles.typeSelectorBtnActive,
+                    {
+                      backgroundColor:
+                        tempAnnType === t
+                          ? t === 'info'
+                            ? '#3B82F6'
+                            : t === 'success'
+                            ? '#10B981'
+                            : '#F59E0B'
+                          : isDark
+                          ? '#1C242B'
+                          : '#E2E8F0',
+                    },
+                  ]}
+                  onPress={() => setTempAnnType(t)}
+                >
+                  <Text
+                    style={[
+                      styles.typeSelectorBtnText,
+                      { color: tempAnnType === t ? '#FFFFFF' : isDark ? '#94A3B8' : '#475569' },
+                    ]}
+                  >
+                    {t.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalCancelBtn, { backgroundColor: isDark ? '#1C242B' : '#E2E8F0' }]}
+                onPress={() => setAnnouncementModalVisible(false)}
+              >
+                <Text style={[styles.modalCancelText, { color: isDark ? '#E2E8F0' : '#334155' }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={saveAnnouncementModal}>
+                <Text style={styles.modalSaveText}>Publish Banner</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
 
-      {/* Avatar Picker Modal */}
+      {/* MODAL 3: Edit Branding & Organization */}
+      <Modal visible={brandingModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: isDark ? '#141B20' : '#FFFFFF' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                Edit Brand & Contact Info
+              </Text>
+              <TouchableOpacity onPress={() => setBrandingModalVisible(false)}>
+                <Ionicons name="close" size={22} color={isDark ? '#94A3B8' : '#64748B'} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.inputLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>APP NAME</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: isDark ? '#1C242B' : '#F1F5F9', color: isDark ? '#FFFFFF' : '#0F172A' }]}
+              value={tempBrandName}
+              onChangeText={setTempBrandName}
+            />
+
+            <Text style={[styles.inputLabel, { color: isDark ? '#94A3B8' : '#64748B', marginTop: 10 }]}>TAGLINE</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: isDark ? '#1C242B' : '#F1F5F9', color: isDark ? '#FFFFFF' : '#0F172A' }]}
+              value={tempTagline}
+              onChangeText={setTempTagline}
+            />
+
+            <Text style={[styles.inputLabel, { color: isDark ? '#94A3B8' : '#64748B', marginTop: 10 }]}>SUPPORT PHONE / WHATSAPP</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: isDark ? '#1C242B' : '#F1F5F9', color: isDark ? '#FFFFFF' : '#0F172A' }]}
+              value={tempPhone}
+              onChangeText={setTempPhone}
+            />
+
+            <Text style={[styles.inputLabel, { color: isDark ? '#94A3B8' : '#64748B', marginTop: 10 }]}>SUPPORT EMAIL</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: isDark ? '#1C242B' : '#F1F5F9', color: isDark ? '#FFFFFF' : '#0F172A' }]}
+              value={tempEmail}
+              onChangeText={setTempEmail}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalCancelBtn, { backgroundColor: isDark ? '#1C242B' : '#E2E8F0' }]}
+                onPress={() => setBrandingModalVisible(false)}
+              >
+                <Text style={[styles.modalCancelText, { color: isDark ? '#E2E8F0' : '#334155' }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={saveBrandingModal}>
+                <Text style={styles.modalSaveText}>Save Brand Details</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL 4: Edit UPI Payment Settings */}
+      <Modal visible={paymentModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: isDark ? '#141B20' : '#FFFFFF' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                Configure UPI Payment Gateway
+              </Text>
+              <TouchableOpacity onPress={() => setPaymentModalVisible(false)}>
+                <Ionicons name="close" size={22} color={isDark ? '#94A3B8' : '#64748B'} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.inputLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>DEFAULT MERCHANT UPI ID (VPA)</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: isDark ? '#1C242B' : '#F1F5F9', color: isDark ? '#FFFFFF' : '#0F172A' }]}
+              value={tempUpiId}
+              onChangeText={setTempUpiId}
+              placeholder="e.g. 8440003711@upi"
+              placeholderTextColor="#64748B"
+            />
+
+            <Text style={[styles.inputLabel, { color: isDark ? '#94A3B8' : '#64748B', marginTop: 10 }]}>PAYEE / MERCHANT NAME</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: isDark ? '#1C242B' : '#F1F5F9', color: isDark ? '#FFFFFF' : '#0F172A' }]}
+              value={tempMerchantName}
+              onChangeText={setTempMerchantName}
+              placeholder="e.g. HisabPro Merchant"
+              placeholderTextColor="#64748B"
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalCancelBtn, { backgroundColor: isDark ? '#1C242B' : '#E2E8F0' }]}
+                onPress={() => setPaymentModalVisible(false)}
+              >
+                <Text style={[styles.modalCancelText, { color: isDark ? '#E2E8F0' : '#334155' }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={savePaymentModal}>
+                <Text style={styles.modalSaveText}>Save UPI Settings</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL 5: Edit Maintenance Message */}
+      <Modal visible={maintenanceModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: isDark ? '#141B20' : '#FFFFFF' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                Maintenance Screen Notice
+              </Text>
+              <TouchableOpacity onPress={() => setMaintenanceModalVisible(false)}>
+                <Ionicons name="close" size={22} color={isDark ? '#94A3B8' : '#64748B'} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.inputLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>LOCKDOWN SCREEN MESSAGE</Text>
+            <TextInput
+              style={[
+                styles.modalTextArea,
+                {
+                  backgroundColor: isDark ? '#1C242B' : '#F1F5F9',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                },
+              ]}
+              value={tempMaintMsg}
+              onChangeText={setTempMaintMsg}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalCancelBtn, { backgroundColor: isDark ? '#1C242B' : '#E2E8F0' }]}
+                onPress={() => setMaintenanceModalVisible(false)}
+              >
+                <Text style={[styles.modalCancelText, { color: isDark ? '#E2E8F0' : '#334155' }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={saveMaintenanceModal}>
+                <Text style={styles.modalSaveText}>Update Message</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 3D Avatar Picker Modal */}
       <AvatarPickerModal
         visible={avatarPickerVisible}
         selectedAvatarId={profile?.avatar_id || 'abhishek'}
@@ -874,613 +1417,545 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
 };
 
 const styles = StyleSheet.create({
-  mainScreenContainer: {
+  container: {
     flex: 1,
   },
-  desktopShell: {
-    flex: 1,
+  topHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
     flexDirection: 'row',
-  },
-  desktopSidebar: {
-    width: 230,
-    borderRightWidth: 1,
-    paddingVertical: 18,
-    paddingHorizontal: 14,
+    alignItems: 'center',
     justifyContent: 'space-between',
+    zIndex: 10,
   },
-  sidebarBrandRow: {
+  topHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 24,
-    paddingHorizontal: 6,
+    gap: 14,
   },
-  sidebarLogoBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#FF7A00',
-    alignItems: 'center',
+  backButton: {
+    padding: 6,
+    borderRadius: 8,
+  },
+  brandTitleCol: {
     justifyContent: 'center',
   },
-  sidebarBrandTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-  },
-  sidebarNavList: {
-    flex: 1,
-    gap: 4,
-  },
-  sidebarNavItem: {
+  brandTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    gap: 8,
   },
-  sidebarNavText: {
-    fontSize: 13,
+  brandTitleText: {
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
-  sidebarSectionDivider: {
-    marginTop: 18,
-    marginBottom: 8,
+  adminCrownBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 122, 0, 0.15)',
     paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 122, 0, 0.3)',
   },
-  sidebarSectionHeader: {
+  adminCrownText: {
     fontSize: 10,
     fontWeight: '800',
     color: '#FF7A00',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
   },
-  sidebarDividerLine: {
-    height: 1,
-    backgroundColor: '#242220',
-    marginTop: 6,
+  brandSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
   },
-  sidebarFooter: {
+  topHeaderRight: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#1F1F1F',
+    gap: 12,
   },
-  sidebarCollapseBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#1E1E1E',
+  savedToastBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  savedToastText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  refreshBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  desktopMainPanel: {
-    flex: 1,
-  },
-  desktopTopBar: {
-    height: 64,
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  desktopSearchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#161616',
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    width: 360,
-    gap: 8,
-  },
-  desktopSearchInput: {
-    flex: 1,
-    color: '#FFFFFF',
-    fontSize: 12,
-    paddingVertical: 2,
-  },
-  desktopTopRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 18,
-  },
-  bellBtn: {
-    position: 'relative',
-    padding: 6,
-  },
-  redDot: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
   },
   adminProfileChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  topBarAvatar: {
+  adminChipAvatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#242220',
+    backgroundColor: '#FF7A00',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#FF7A00',
   },
-  adminTagRow: {
-    flexDirection: 'row',
+  adminChipInitial: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0B0F11',
+  },
+  adminChipName: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  adminChipEmail: {
+    fontSize: 11,
+    color: '#FF7A00',
+  },
+  mainScrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
     alignItems: 'center',
   },
-  mobileScrollContent: {
-    padding: 16,
-    paddingBottom: 40,
+  contentWrapper: {
+    width: '100%',
+    gap: 18,
   },
-  dashboardContainer: {
+  healthBanner: {
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 14,
   },
-  greetingRow: {
+  healthItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  healthDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  healthLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  healthValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  healthDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  tabsContainer: {
+    width: '100%',
+  },
+  tabsContent: {
+    gap: 10,
+    paddingVertical: 4,
+  },
+  tabButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  tabButtonActive: {
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  tabButtonText: {
+    fontSize: 13,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    width: '100%',
+  },
+  singleColContainer: {
+    width: '100%',
+  },
+  featureCard: {
+    flex: 1,
+    minWidth: 320,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 20,
+    gap: 14,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+  },
+  cardIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  cardDesc: {
+    fontSize: 12,
+    marginTop: 3,
+    lineHeight: 17,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  switchTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  switchSub: {
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  outlineActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  outlineActionBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  primaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  primaryActionBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  infoDisplayBox: {
+    padding: 12,
+    borderRadius: 10,
+    gap: 8,
+    marginVertical: 4,
+  },
+  infoDisplayRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
   },
-  greetingTitle: {
-    fontSize: 20,
+  infoDisplayKey: {
+    fontSize: 12,
+  },
+  infoDisplayVal: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  announcementPreviewBox: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+    marginVertical: 6,
+  },
+  annPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  annPreviewTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  annPreviewText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  brandInfoGrid: {
+    gap: 10,
+  },
+  brandInfoItem: {
+    padding: 14,
+    borderRadius: 12,
+    gap: 4,
+  },
+  brandInfoKey: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  brandInfoVal: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  userListCol: {
+    gap: 10,
+  },
+  userCardItem: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 12,
+  },
+  userCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    minWidth: 200,
+  },
+  userAvatarBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userAvatarText: {
+    fontSize: 16,
     fontWeight: '900',
-    letterSpacing: -0.3,
+    color: '#0B0F11',
   },
-  greetingSub: {
+  userNameText: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  superAdminTag: {
+    backgroundColor: '#FF7A00',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  superAdminTagText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#0B0F11',
+  },
+  adminTag: {
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  adminTagText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  userEmailText: {
     fontSize: 12,
     marginTop: 2,
   },
-  dateFilterBtn: {
+  userCardRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
+    gap: 10,
   },
-  dateFilterText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  metricCard: {
-    flex: 1,
-    minWidth: 140,
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-  },
-  metricCardTop: {
-    marginBottom: 8,
-  },
-  metricIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  metricValue: {
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: 4,
-  },
-  trendGreen: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#22C55E',
-    marginTop: 4,
-  },
-  trendRed: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#EF4444',
-    marginTop: 4,
-  },
-  chartsRow: {
-    gap: 12,
-  },
-  chartCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 16,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  chartTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  filterPillSmall: {
+  statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: '#1E1E1E',
   },
-  legendRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 10,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  barChartWrapper: {
-    marginTop: 4,
-  },
-  xAxisRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    marginTop: 4,
-  },
-  xAxisLabel: {
-    fontSize: 9,
-    fontWeight: '600',
-  },
-  splitContentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  donutContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  donutCenterLabel: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  donutTotalVal: {
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  donutTotalSub: {
+  statusBadgeText: {
     fontSize: 10,
+    fontWeight: '800',
   },
-  splitMetricsCol: {
-    flex: 1,
-    marginLeft: 18,
-    gap: 12,
-  },
-  splitMetricItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  splitIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  splitLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  splitVal: {
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  splitEntries: {
-    fontSize: 10,
-  },
-  tablesRow: {
-    gap: 12,
-  },
-  tableCard: {
-    borderRadius: 14,
+  userActionMiniBtn: {
     borderWidth: 1,
-    padding: 16,
-  },
-  tableCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  tableCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  viewAllLink: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FF7A00',
-  },
-  customerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-    gap: 10,
-  },
-  rankNumber: {
-    fontSize: 12,
-    fontWeight: '700',
-    width: 14,
-  },
-  customerAvatarCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customerAvatarInitial: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  customerInfoCol: {
-    flex: 1,
-  },
-  customerRowName: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  customerRowPhone: {
-    fontSize: 11,
-  },
-  customerRowAmount: {
-    fontSize: 13,
-    fontWeight: '800',
-    marginRight: 6,
-  },
-  toReceivePill: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
     borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  toReceivePillText: {
+  userActionMiniBtnText: {
     fontSize: 10,
-    fontWeight: '800',
-    color: '#EF4444',
-  },
-  txRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-    gap: 10,
-  },
-  txAvatarCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  txAvatarInitial: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  txInfoCol: {
-    flex: 1,
-  },
-  txNameText: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  txNoteText: {
-    fontSize: 11,
-  },
-  txDateCol: {
-    fontSize: 10,
-    marginRight: 8,
-  },
-  txAmountText: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  bottomRow: {
-    gap: 12,
-  },
-  bottomCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 16,
-  },
-  expensesContentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  expensesLegendCol: {
-    flex: 1,
-    marginLeft: 16,
-    gap: 6,
-  },
-  expenseLegendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  expenseCatName: {
-    fontSize: 11,
-    flex: 1,
-  },
-  expenseCatPct: {
-    fontSize: 11,
     fontWeight: '700',
-    width: 32,
   },
-  expenseCatAmt: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  systemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  actionButtonsGrid: {
+  quickToolsBox: {
+    width: '100%',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-  },
-  quickActionTile: {
-    width: '31%',
-    minWidth: 80,
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    borderRadius: 10,
-    borderWidth: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  quickToolsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quickToolsTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  quickToolsSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  quickToolsRight: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  resetDefaultsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  quickActionTileText: {
-    fontSize: 10,
+  resetDefaultsText: {
+    fontSize: 12,
     fontWeight: '700',
-    textAlign: 'center',
+    color: '#EF4444',
   },
-  modalBackdrop: {
+  modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  filterModalCard: {
+  modalBox: {
     width: '100%',
-    maxWidth: 360,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 18,
+    maxWidth: 500,
+    borderRadius: 20,
+    padding: 20,
+    gap: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: '800',
-    marginBottom: 14,
   },
-  filterOptionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+  modalDesc: {
+    fontSize: 12,
+    lineHeight: 16,
   },
-  filterOptionText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  fullModalCard: {
-    width: '100%',
-    maxWidth: 480,
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 20,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  userListItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  userListLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  superAdminAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FF7A00',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  brandModalCard: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 20,
-  },
-  brandPreviewBox: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  logoBadgeBig: {
-    width: 60,
-    height: 60,
-    borderRadius: 18,
-    backgroundColor: '#FF7A00',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inputLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  modalTextInput: {
-    paddingHorizontal: 12,
+  modalInput: {
+    paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    fontSize: 14,
+    fontSize: 13,
   },
-  saveBtn: {
+  modalTextArea: {
+    paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 10,
+    borderWidth: 1,
+    fontSize: 13,
+    minHeight: 90,
+  },
+  inputLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  typeSelectorRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  typeSelectorBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  typeSelectorBtnActive: {},
+  typeSelectorBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 10,
+  },
+  modalCancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  modalSaveBtn: {
+    backgroundColor: '#FF7A00',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalSaveText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0B0F11',
   },
 });

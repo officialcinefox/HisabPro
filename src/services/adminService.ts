@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../config/supabase';
 import { Profile } from '../types';
 
@@ -14,7 +15,114 @@ export interface AdminUserProfile extends Profile {
   transactionCount?: number;
 }
 
+export interface AppFeatureConfig {
+  // WhatsApp Features
+  whatsappRemindersEnabled: boolean;
+  whatsappDirectShare: boolean; // true = direct text message, false = pdf file
+  whatsappTemplate: string;
+
+  // PDF Engine Features
+  pdfGenerationEnabled: boolean;
+  pdfShowLogo: boolean;
+  pdfShowUpiQr: boolean;
+  pdfShowSummaryBoxes: boolean;
+  pdfShowWatermark: boolean;
+
+  // UPI Payments
+  upiPaymentsEnabled: boolean;
+  defaultUpiId: string;
+  defaultMerchantName: string;
+
+  // Avatars & Media
+  avatars3dEnabled: boolean;
+  allowCustomAvatarUpload: boolean;
+  defaultAvatarId: string;
+
+  // Maintenance & Security
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+  biometricLockEnabled: boolean;
+  allowNewRegistrations: boolean;
+
+  // Announcement Banner
+  announcementActive: boolean;
+  announcementTitle: string;
+  announcementText: string;
+  announcementType: 'info' | 'success' | 'warning';
+
+  // Branding & App Details
+  brandName: string;
+  tagline: string;
+  supportPhone: string;
+  supportEmail: string;
+  appVersion: string;
+  minRequiredVersion: string;
+  forceUpdate: boolean;
+}
+
+export const DEFAULT_FEATURE_CONFIG: AppFeatureConfig = {
+  whatsappRemindersEnabled: true,
+  whatsappDirectShare: true,
+  whatsappTemplate: 'Namaste {customer_name}, your balance of {amount} is pending with {business_name}. Please pay via UPI or Cash. Thank you!',
+  pdfGenerationEnabled: true,
+  pdfShowLogo: true,
+  pdfShowUpiQr: true,
+  pdfShowSummaryBoxes: true,
+  pdfShowWatermark: true,
+  upiPaymentsEnabled: true,
+  defaultUpiId: '8440003711@upi',
+  defaultMerchantName: 'HisabPro Merchant',
+  avatars3dEnabled: true,
+  allowCustomAvatarUpload: true,
+  defaultAvatarId: 'abhishek',
+  maintenanceMode: false,
+  maintenanceMessage: 'HisabPro is currently under maintenance. We will be back online shortly!',
+  biometricLockEnabled: true,
+  allowNewRegistrations: true,
+  announcementActive: true,
+  announcementTitle: '🎉 Welcome to HisabPro 1.0',
+  announcementText: 'PDF Statements, WhatsApp Reminders, and 3D Disney/Pixar Avatars are now active!',
+  announcementType: 'info',
+  brandName: 'HisabPro',
+  tagline: 'Simple Accounts. Better Business.',
+  supportPhone: '+91 8440003711',
+  supportEmail: 'abhidagar6319@gmail.com',
+  appVersion: '1.0.0',
+  minRequiredVersion: '1.0.0',
+  forceUpdate: false,
+};
+
+const FEATURE_CONFIG_STORAGE_KEY = '@hisabpro_admin_feature_config';
+
 export const adminService = {
+  /**
+   * Load Feature Configuration
+   */
+  async getFeatureConfig(): Promise<AppFeatureConfig> {
+    try {
+      const stored = await AsyncStorage.getItem(FEATURE_CONFIG_STORAGE_KEY);
+      if (stored) {
+        return { ...DEFAULT_FEATURE_CONFIG, ...JSON.parse(stored) };
+      }
+    } catch (e) {
+      console.warn('Failed to load feature config from storage:', e);
+    }
+    return DEFAULT_FEATURE_CONFIG;
+  },
+
+  /**
+   * Save Feature Configuration
+   */
+  async saveFeatureConfig(config: AppFeatureConfig): Promise<{ success: boolean; error?: string }> {
+    try {
+      await AsyncStorage.setItem(FEATURE_CONFIG_STORAGE_KEY, JSON.stringify(config));
+      return { success: true };
+    } catch (e: any) {
+      console.warn('Failed to save feature config:', e);
+      return { success: false, error: e.message || 'Storage error' };
+    }
+  },
+
   /**
    * Fetch aggregate platform statistics
    */
