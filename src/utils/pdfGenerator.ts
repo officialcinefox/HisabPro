@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Linking, Platform, Share } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Customer, Transaction } from '../types';
@@ -742,107 +742,93 @@ export const generateAndShareCustomerReportPdf = async (
 };
 
 /**
+ * Generate a friendly, professional payment reminder message for WhatsApp
+ */
+export const generateWhatsAppReminderMessage = (options: GenerateReportOptions): string => {
+  const { customer, transactions, periodLabel } = options;
+  const balance = calculateCustomerBalance(transactions);
+  const balAmt = formatCurrency(balance.displayAmount, true);
+  const balWords = numberToWordsIndian(balance.displayAmount);
+  const isLena = balance.status === 'lena_hai';
+  const isDena = balance.status === 'dena_hai';
+
+  let msg = `Namaste ${customer.name} ji 🙏\n\n`;
+
+  if (isLena) {
+    msg += `Yeh *HisabPro* ki taraf se payment reminder hai.\n\n`;
+    msg += `📌 *Aapka Pending Hisab:* ${balAmt}\n`;
+    msg += `_${balWords}_\n`;
+    msg += `📅 *Period:* ${periodLabel}\n`;
+    msg += `⏰ *Date:* ${formatDate(new Date().toISOString())}\n\n`;
+    msg += `Kripya karke yeh pending hisab jald se jald settle kar dijiye. Aap UPI / Bank Transfer / Cash ke dwara payment kar sakte hain.\n\n`;
+    msg += `Agar aapko detailed statement ya koi query ho toh kripya yahan reply karein.\n\n`;
+  } else if (isDena) {
+    msg += `Aapka *HisabPro* account update:\n\n`;
+    msg += `📌 *Amount to be Paid:* ${balAmt}\n`;
+    msg += `_${balWords}_\n`;
+    msg += `📅 *Period:* ${periodLabel}\n\n`;
+    msg += `Hum aapka yeh payment hisab jald se jald settle kar denge.\n\n`;
+  } else {
+    msg += `Aapka *HisabPro* account balance bilkul clear aur settled (₹0.00) hai. Koi dues pending nahi hain.\n\n`;
+  }
+
+  msg += `Dhanyawad! ✨\n`;
+  msg += `*HisabPro • Simple Accounts. Better Business.*\n`;
+  msg += `🌐 www.hisabpro.in`;
+
+  return msg;
+};
+
+/**
  * Share via WhatsApp:
- * - On native mobile: generates actual PDF file and shares it via the share sheet directly into WhatsApp
- * - On web: opens PDF print/preview in a tab AND opens WhatsApp with message informing statement is ready
+ * Directly opens WhatsApp chat with the professional payment reminder message.
+ * Does NOT download any PDF file.
  */
 export const generateAndShareViaWhatsApp = async (
   options: GenerateReportOptions
 ): Promise<void> => {
-  const html = buildHtml(options);
   const { customer } = options;
+  const message = generateWhatsAppReminderMessage(options);
+  const cleanPhone = customer.phone ? customer.phone.replace(/[^0-9]/g, '') : '';
+  const encoded = encodeURIComponent(message);
 
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined') {
-      // 1. Open PDF preview tab with auto-print
-      const pdfTab = window.open('', '_blank');
-      if (pdfTab) {
-        pdfTab.document.open();
-        pdfTab.document.write(html);
-        pdfTab.document.close();
-        pdfTab.focus();
-        setTimeout(() => pdfTab.print(), 600);
-      }
-
-      // 2. Open WhatsApp chat
-      const cleanPhone = customer.phone ? customer.phone.replace(/[^0-9]/g, '') : '';
-      const waMsg = encodeURIComponent(
-        `Hi ${customer.name}, please find attached your HisabPro account statement.`
-      );
       const waUrl = cleanPhone
-        ? `https://wa.me/${cleanPhone}?text=${waMsg}`
-        : `https://wa.me/?text=${waMsg}`;
-      setTimeout(() => window.open(waUrl, '_blank'), 400);
+        ? `https://wa.me/${cleanPhone}?text=${encoded}`
+        : `https://wa.me/?text=${encoded}`;
+      window.open(waUrl, '_blank');
     }
     return;
   }
 
-  // Mobile: generate PDF file and share directly to WhatsApp
-  const { uri } = await Print.printToFileAsync({ html, base64: false });
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, {
-      UTI: '.pdf',
-      mimeType: 'application/pdf',
-      dialogTitle: `Share Statement PDF via WhatsApp – ${customer.name}`,
-    });
-  }
-};
+  // Mobile: Try direct whatsapp url scheme first
+  const waScheme = cleanPhone
+    ? `whatsapp://send?phone=${cleanPhone}&text=${encoded}`
+    : `whatsapp://send?text=${encoded}`;
 
-// ─── Plain Text Report ────────────────────────────────────────────────────────
-
-export const generatePlainTextReport = (options: GenerateReportOptions): string => {
-  const { customer, transactions, periodLabel } = options;
-  const balance = calculateCustomerBalance(transactions);
-
-  let periodGiven = 0;
-  let periodGot = 0;
-  for (const tx of transactions) {
-    const amt = Number(tx.amount) || 0;
-    if (tx.transaction_type === 'you_gave') periodGiven += amt;
-    else periodGot += amt;
-  }
-
-  const isLena = balance.status === 'lena_hai';
-  const isDena = balance.status === 'dena_hai';
-  const statusLabel = isLena ? 'To Receive' : isDena ? 'To Pay' : 'Settled';
-  const balWords = numberToWordsIndian(balance.displayAmount);
-
-  let t = `📊 *HISABPRO ACCOUNT STATEMENT*\n`;
-  t += `━━━━━━━━━━━━━━━━━━━━\n`;
-  t += `👤 *Customer:* ${customer.name}\n`;
-  if (customer.phone) t += `📞 *Phone:* ${customer.phone}\n`;
-  t += `📅 *Period:* ${periodLabel}\n`;
-  t += `⏰ *Generated On:* ${formatDate(new Date().toISOString())}\n`;
-  t += `━━━━━━━━━━━━━━━━━━━━\n\n`;
-  t += `💰 *SUMMARY*\n`;
-  t += `🔴 *Total Given:* ${formatCurrency(periodGiven, true)}\n`;
-  t += `🟢 *Total Received:* ${formatCurrency(periodGot, true)}\n`;
-  t += `📝 *Total Entries:* ${transactions.length}\n\n`;
-  t += `━━━━━━━━━━━━━━━━━━━━\n`;
-  t += `⚖️ *OUTSTANDING BALANCE*\n`;
-  t += `👉 *${formatCurrency(balance.displayAmount, true)} (${statusLabel})*\n`;
-  t += `_${balWords}_\n`;
-  t += `━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-  if (transactions.length > 0) {
-    t += `📋 *TRANSACTION DETAILS:*\n`;
-    const sorted = [...transactions]
-      .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date))
-      .slice(0, 10);
-    sorted.forEach((tx, i) => {
-      const isGave = tx.transaction_type === 'you_gave';
-      const icon = isGave ? '🔴 Given' : '🟢 Received';
-      t += `${i + 1}. ${formatDate(tx.transaction_date)} | ${icon} | ${formatCurrency(tx.amount, true)}`;
-      if (tx.note) t += ` (${tx.note})`;
-      t += '\n';
-    });
-    if (transactions.length > 10) {
-      t += `...and ${transactions.length - 10} more entries.\n`;
+  try {
+    const canOpen = await Linking.canOpenURL(waScheme);
+    if (canOpen) {
+      await Linking.openURL(waScheme);
+      return;
     }
-  }
+  } catch (_) {}
 
-  t += `\n━━━━━━━━━━━━━━━━━━━━\n`;
-  t += `_Generated via HisabPro • Simple Accounts. Better Business._\n`;
-  t += `_🌐 www.hisabpro.in_`;
-  return t;
+  // Fallback on mobile: open https://wa.me
+  const waWebFallback = cleanPhone
+    ? `https://wa.me/${cleanPhone}?text=${encoded}`
+    : `https://wa.me/?text=${encoded}`;
+
+  try {
+    await Linking.openURL(waWebFallback);
+  } catch (_) {
+    // Ultimate fallback: system share sheet
+    await Share.share({
+      message,
+      title: `HisabPro Payment Reminder – ${customer.name}`,
+    });
+  }
 };
+
+export const generatePlainTextReport = generateWhatsAppReminderMessage;
