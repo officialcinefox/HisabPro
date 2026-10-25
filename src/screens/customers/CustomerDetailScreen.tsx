@@ -213,7 +213,7 @@ export const CustomerDetailScreen: React.FC<CustomerDetailScreenProps> = ({
           >
             <View style={styles.breakdownCol}>
               <Text style={[styles.breakdownLabel, { color: colors.textSecondary }]}>
-                Maine Diye
+                You Gave
               </Text>
               <Text style={[styles.breakdownValue, { color: colors.negative }]}>
                 {formatCurrency(customer.totalGave)}
@@ -224,7 +224,7 @@ export const CustomerDetailScreen: React.FC<CustomerDetailScreenProps> = ({
 
             <View style={styles.breakdownCol}>
               <Text style={[styles.breakdownLabel, { color: colors.textSecondary }]}>
-                Mujhe Mile
+                You Got
               </Text>
               <Text style={[styles.breakdownValue, { color: colors.positive }]}>
                 {formatCurrency(customer.totalGot)}
@@ -258,7 +258,7 @@ export const CustomerDetailScreen: React.FC<CustomerDetailScreenProps> = ({
           >
             <Ionicons name="arrow-up-circle" size={18} color={colors.negative} />
             <Text style={[styles.quickBtnText, { color: colors.negative }]}>
-              Maine Diye (+)
+              You Gave (+)
             </Text>
           </TouchableOpacity>
 
@@ -274,7 +274,7 @@ export const CustomerDetailScreen: React.FC<CustomerDetailScreenProps> = ({
           >
             <Ionicons name="arrow-down-circle" size={18} color={colors.positive} />
             <Text style={[styles.quickBtnText, { color: colors.positive }]}>
-              Mujhe Mile (-)
+              You Got (-)
             </Text>
           </TouchableOpacity>
         </View>

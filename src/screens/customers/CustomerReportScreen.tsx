@@ -175,7 +175,7 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
 
         <View style={styles.currentBalanceRow}>
           <Text style={[styles.currentBalanceLabel, { color: colors.textSecondary }]}>
-            Overall Balance ({customer.status === 'lena_hai' ? 'Lena Hai' : customer.status === 'dena_hai' ? 'Dena Hai' : 'Settled'}):
+            Overall Balance ({customer.status === 'lena_hai' ? 'To Receive' : customer.status === 'dena_hai' ? 'To Pay' : 'Settled'}):
           </Text>
           <Text
             style={[
@@ -299,7 +299,7 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
       <View style={styles.metricsGrid}>
         <Card style={styles.metricCard}>
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Period Diye
+            Period Given
           </Text>
           <Text style={[styles.metricValue, { color: colors.negative }]}>
             {formatCurrency(periodGave)}
@@ -308,7 +308,7 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
 
         <Card style={styles.metricCard}>
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Period Mile
+            Period Received
           </Text>
           <Text style={[styles.metricValue, { color: colors.positive }]}>
             {formatCurrency(periodGot)}

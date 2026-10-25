@@ -14,6 +14,7 @@ import { Card } from '../../components/Card';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { EmptyState } from '../../components/EmptyState';
 import { ExpenseCategoryBar } from '../../components/ExpenseCategoryBar';
+import { ExpenseCircularChart } from '../../components/ExpenseCircularChart';
 import { FloatingActionButton } from '../../components/FloatingActionButton';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { useData } from '../../context/DataContext';
@@ -40,6 +41,7 @@ export const ExpensesScreen: React.FC = () => {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [targetExpense, setTargetExpense] = useState<Expense | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [chartView, setChartView] = useState<'circle' | 'bars'>('circle');
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -136,22 +138,67 @@ export const ExpensesScreen: React.FC = () => {
                 </View>
               </View>
 
-              {/* Category Breakdown Bars */}
+              {/* Category Breakdown with Circle Donut & Bar Toggle */}
               {categoryBreakdown.length > 0 ? (
                 <View style={styles.breakdownContainer}>
-                  <Text
-                    style={[styles.breakdownHeader, { color: colors.textSecondary }]}
-                  >
-                    Category Breakdown
-                  </Text>
-                  {categoryBreakdown.map((item) => (
-                    <ExpenseCategoryBar
-                      key={item.category}
-                      category={item.category}
-                      amount={item.amount}
-                      percentage={item.percentage}
+                  <View style={styles.breakdownHeaderRow}>
+                    <Text
+                      style={[styles.breakdownHeader, { color: colors.textSecondary }]}
+                    >
+                      Category Breakdown
+                    </Text>
+                    <View style={[styles.viewToggleGroup, { backgroundColor: colors.cardElevated, borderColor: colors.border }]}>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => setChartView('circle')}
+                        style={[
+                          styles.viewToggleBtn,
+                          chartView === 'circle' && {
+                            backgroundColor: colors.primary,
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name="pie-chart"
+                          size={14}
+                          color={chartView === 'circle' ? '#0B0F11' : colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => setChartView('bars')}
+                        style={[
+                          styles.viewToggleBtn,
+                          chartView === 'bars' && {
+                            backgroundColor: colors.primary,
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name="bar-chart"
+                          size={14}
+                          color={chartView === 'bars' ? '#0B0F11' : colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {chartView === 'circle' ? (
+                    <ExpenseCircularChart
+                      data={categoryBreakdown}
+                      totalAmount={monthTotal}
                     />
-                  ))}
+                  ) : (
+                    categoryBreakdown.map((item) => (
+                      <ExpenseCategoryBar
+                        key={item.category}
+                        category={item.category}
+                        amount={item.amount}
+                        percentage={item.percentage}
+                      />
+                    ))
+                  )}
                 </View>
               ) : (
                 <Text
@@ -304,11 +351,30 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255,255,255,0.08)',
   },
+  breakdownHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   breakdownHeader: {
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
-    marginBottom: 8,
+  },
+  viewToggleGroup: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 2,
+    gap: 2,
+  },
+  viewToggleBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   noExpenseMonthText: {
     fontSize: 12,

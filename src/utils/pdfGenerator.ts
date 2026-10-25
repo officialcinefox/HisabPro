@@ -36,7 +36,7 @@ export const generateAndShareCustomerReportPdf = async (
   const tableRowsHtml = transactions
     .map((tx, idx) => {
       const isGave = tx.transaction_type === 'you_gave';
-      const typeLabel = isGave ? 'Maine Diye (Gave)' : 'Mujhe Mile (Got)';
+      const typeLabel = isGave ? 'You Gave' : 'You Got';
       const typeColor = isGave ? '#EF4444' : '#22C55E';
       const formattedAmt = formatCurrency(tx.amount, true);
 
@@ -57,10 +57,10 @@ export const generateAndShareCustomerReportPdf = async (
 
   const statusLabel =
     currentOverallBalance.status === 'lena_hai'
-      ? 'Lena Hai (Customer Owes You)'
+      ? 'To Receive (Receivable)'
       : currentOverallBalance.status === 'dena_hai'
-      ? 'Dena Hai (You Owe Customer)'
-      : 'Settled (Hisab Barabar)';
+      ? 'To Pay (Payable)'
+      : 'Settled (Zero Balance)';
 
   const statusColor =
     currentOverallBalance.status === 'lena_hai'
@@ -288,9 +288,9 @@ export const generatePlainTextReport = (options: GenerateReportOptions): string 
 
   const statusText =
     currentOverallBalance.status === 'lena_hai'
-      ? `Lena Hai: ${formatCurrency(currentOverallBalance.displayAmount)}`
+      ? `To Receive: ${formatCurrency(currentOverallBalance.displayAmount)}`
       : currentOverallBalance.status === 'dena_hai'
-      ? `Dena Hai: ${formatCurrency(currentOverallBalance.displayAmount)}`
+      ? `To Pay: ${formatCurrency(currentOverallBalance.displayAmount)}`
       : `Settled (₹0)`;
 
   let text = `*HisabPro Account Summary*\n`;
@@ -298,8 +298,8 @@ export const generatePlainTextReport = (options: GenerateReportOptions): string 
   if (customer.phone) text += `📞 *Phone:* ${customer.phone}\n`;
   text += `📅 *Period:* ${periodLabel}\n`;
   text += `━━━━━━━━━━━━━━━━━━━━\n`;
-  text += `🔴 *Period Maine Diye:* ${formatCurrency(periodGiven)}\n`;
-  text += `🟢 *Period Mujhe Mile:* ${formatCurrency(periodGot)}\n`;
+  text += `🔴 *Period You Gave:* ${formatCurrency(periodGiven)}\n`;
+  text += `🟢 *Period You Got:* ${formatCurrency(periodGot)}\n`;
   text += `📊 *Total Transactions:* ${transactions.length}\n`;
   text += `━━━━━━━━━━━━━━━━━━━━\n`;
   text += `⚖️ *Current Balance:* *${statusText}*\n\n`;
@@ -308,7 +308,7 @@ export const generatePlainTextReport = (options: GenerateReportOptions): string 
     text += `*Recent Entries:*\n`;
     const recent = transactions.slice(0, 5);
     for (const tx of recent) {
-      const type = tx.transaction_type === 'you_gave' ? '🔴 Diye' : '🟢 Mile';
+      const type = tx.transaction_type === 'you_gave' ? '🔴 Gave' : '🟢 Got';
       text += `• ${formatDate(tx.transaction_date)}: ${type} ${formatCurrency(tx.amount)}${
         tx.note ? ` (${tx.note})` : ''
       }\n`;

@@ -73,20 +73,20 @@ export const formatDateTime = (dateStr: string | null | undefined): string => {
 };
 
 /**
- * Format customer status label and styling
+ * Format customer status label and styling (English)
  */
 export const getStatusBadgeInfo = (status: CustomerStatus) => {
   switch (status) {
     case 'lena_hai':
       return {
-        label: 'Lena Hai',
-        subtitle: 'You will get',
+        label: 'To Receive',
+        subtitle: "You'll get",
         type: 'positive' as const,
       };
     case 'dena_hai':
       return {
-        label: 'Dena Hai',
-        subtitle: 'You will give',
+        label: 'To Pay',
+        subtitle: "You'll give",
         type: 'negative' as const,
       };
     case 'settled':
@@ -100,20 +100,20 @@ export const getStatusBadgeInfo = (status: CustomerStatus) => {
 };
 
 /**
- * Transaction type helpers
+ * Transaction type helpers (English)
  */
 export const getTransactionTypeInfo = (type: TransactionType) => {
   if (type === 'you_gave') {
     return {
-      label: 'Maine Diye',
-      subtitle: 'You Gave',
+      label: 'You Gave',
+      subtitle: 'Debit',
       type: 'negative' as const,
-      sign: '+', // increases what customer owes user (Lena Hai)
+      sign: '+', // increases what customer owes user
     };
   }
   return {
-    label: 'Mujhe Mile',
-    subtitle: 'You Got',
+    label: 'You Got',
+    subtitle: 'Credit',
     type: 'positive' as const,
     sign: '-', // reduces what customer owes user
   };

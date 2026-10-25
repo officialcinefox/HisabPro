@@ -7,6 +7,8 @@ import { AddTransactionScreen } from '../screens/customers/AddTransactionScreen'
 import { CustomerDetailScreen } from '../screens/customers/CustomerDetailScreen';
 import { CustomerReportScreen } from '../screens/customers/CustomerReportScreen';
 import { AddExpenseScreen } from '../screens/expenses/AddExpenseScreen';
+import { PrivacyPolicyScreen } from '../screens/legal/PrivacyPolicyScreen';
+import { TermsScreen } from '../screens/legal/TermsScreen';
 import { EditProfileScreen } from '../screens/profile/EditProfileScreen';
 import { RootStackParamList } from '../types';
 import { TabNavigator } from './TabNavigator';
@@ -91,6 +93,22 @@ export const AppNavigator: React.FC = () => {
         component={EditProfileScreen}
         options={{
           headerTitle: 'Edit Profile',
+        }}
+      />
+
+      <Stack.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
+        options={{
+          headerTitle: 'Privacy Policy',
+        }}
+      />
+
+      <Stack.Screen
+        name="Terms"
+        component={TermsScreen}
+        options={{
+          headerTitle: 'Terms & Conditions',
         }}
       />
     </Stack.Navigator>

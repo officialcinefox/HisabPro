@@ -100,6 +100,8 @@ export type RootStackParamList = {
   CustomerReport: { customerId: string };
   AddExpense: undefined;
   EditProfile: undefined;
+  PrivacyPolicy: undefined;
+  Terms: undefined;
 };
 
 export type AuthStackParamList = {

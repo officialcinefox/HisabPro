@@ -129,7 +129,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                   { color: isGave ? '#FFFFFF' : colors.textSecondary },
                 ]}
               >
-                Maine Diye (Gave)
+                You Gave
               </Text>
             </TouchableOpacity>
 
@@ -154,7 +154,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                   { color: !isGave ? '#FFFFFF' : colors.textSecondary },
                 ]}
               >
-                Mujhe Mile (Got)
+                You Got
               </Text>
             </TouchableOpacity>
           </View>
@@ -167,7 +167,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
               ]}
             >
               {isGave
-                ? '🔴 This will INCREASE what the customer owes you (Lena Hai)'
+                ? '🔴 This will INCREASE what the customer owes you (To Receive)'
                 : '🟢 This will REDUCE the customer balance'}
             </Text>
           </View>
@@ -236,7 +236,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
           />
 
           <Button
-            title={`Save ${isGave ? 'Maine Diye' : 'Mujhe Mile'}`}
+            title={`Save ${isGave ? 'You Gave' : 'You Got'}`}
             onPress={handleSave}
             loading={loading}
             size="large"

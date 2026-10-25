@@ -61,8 +61,8 @@ export const CustomersListScreen: React.FC = () => {
 
   const filterOptions = [
     { label: 'All', value: 'all' as FilterValue, count: counts.all },
-    { label: 'Lena Hai', value: 'lena_hai' as FilterValue, count: counts.lena },
-    { label: 'Dena Hai', value: 'dena_hai' as FilterValue, count: counts.dena },
+    { label: 'To Receive', value: 'lena_hai' as FilterValue, count: counts.lena },
+    { label: 'To Pay', value: 'dena_hai' as FilterValue, count: counts.dena },
     { label: 'Settled', value: 'settled' as FilterValue, count: counts.settled },
   ];
 

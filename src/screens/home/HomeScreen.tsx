@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AppLogo } from '../../components/AppLogo';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { EmptyState } from '../../components/EmptyState';
@@ -66,16 +67,9 @@ export const HomeScreen: React.FC = () => {
         />
       }
     >
-      {/* Header with greeting */}
+      {/* Branded Header with App Logo */}
       <View style={styles.headerRow}>
-        <View>
-          <Text style={[styles.greeting, { color: colors.textSecondary }]}>
-            Welcome back,
-          </Text>
-          <Text style={[styles.userName, { color: colors.textPrimary }]}>
-            {profile?.display_name || 'Merchant'} 👋
-          </Text>
-        </View>
+        <AppLogo size="medium" />
 
         <TouchableOpacity
           activeOpacity={0.7}
@@ -87,6 +81,16 @@ export const HomeScreen: React.FC = () => {
         >
           <Ionicons name="person" size={18} color={colors.primary} />
         </TouchableOpacity>
+      </View>
+
+      {/* Personalized Greeting */}
+      <View style={styles.greetingContainer}>
+        <Text style={[styles.greeting, { color: colors.textSecondary }]}>
+          Welcome back,{' '}
+          <Text style={[styles.userName, { color: colors.textPrimary }]}>
+            {profile?.display_name || 'Merchant'} 👋
+          </Text>
+        </Text>
       </View>
 
       {/* Hero Net Balance Banner */}
@@ -135,20 +139,20 @@ export const HomeScreen: React.FC = () => {
                 { color: isNetPositive ? colors.positive : colors.negative },
               ]}
             >
-              {isNetPositive ? 'Lena Hai Net' : 'Dena Hai Net'}
+              {isNetPositive ? 'Net Receivable' : 'Net Payable'}
             </Text>
           </View>
         </View>
 
         <View style={[styles.heroDivider, { backgroundColor: colors.divider }]} />
 
-        {/* Current Outstanding Split (Lena Hai vs Dena Hai) */}
+        {/* Current Outstanding Split (To Receive vs To Pay) */}
         <View style={styles.splitRow}>
           <View style={styles.splitCol}>
             <View style={styles.splitLabelRow}>
               <View style={[styles.indicatorDot, { backgroundColor: colors.positive }]} />
               <Text style={[styles.splitLabel, { color: colors.textSecondary }]}>
-                Lena Hai (Receivable)
+                To Receive
               </Text>
             </View>
             <Text style={[styles.splitValue, { color: colors.positive }]}>
@@ -162,7 +166,7 @@ export const HomeScreen: React.FC = () => {
             <View style={styles.splitLabelRow}>
               <View style={[styles.indicatorDot, { backgroundColor: colors.negative }]} />
               <Text style={[styles.splitLabel, { color: colors.textSecondary }]}>
-                Dena Hai (Payable)
+                To Pay
               </Text>
             </View>
             <Text style={[styles.splitValue, { color: colors.negative }]}>
@@ -199,14 +203,14 @@ export const HomeScreen: React.FC = () => {
       <View style={styles.statGrid}>
         <StatCard
           title="Total Given"
-          subtitle="Lifetime Maine Diye"
+          subtitle="Total Debit Given"
           amount={dashboardSummary.totalGiven}
           type="negative"
           style={styles.statGridItem}
         />
         <StatCard
           title="Total Received"
-          subtitle="Lifetime Mujhe Mile"
+          subtitle="Total Credit Received"
           amount={dashboardSummary.totalReceived}
           type="positive"
           style={styles.statGridItem}
@@ -341,9 +345,9 @@ export const HomeScreen: React.FC = () => {
                 </Text>
                 <Text style={[styles.miniStatus, { color: colors.textSecondary }]}>
                   {customer.status === 'lena_hai'
-                    ? 'Lena'
+                    ? 'To Receive'
                     : customer.status === 'dena_hai'
-                    ? 'Dena'
+                    ? 'To Pay'
                     : 'Settled'}
                 </Text>
               </View>
@@ -373,14 +377,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    marginTop: 8,
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  greetingContainer: {
+    marginBottom: 14,
+    marginTop: -2,
   },
   greeting: {
-    fontSize: 13,
+    fontSize: 14,
   },
   userName: {
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: '800',
   },
   avatarCircle: {

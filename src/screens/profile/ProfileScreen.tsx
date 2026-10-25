@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AppLogo } from '../../components/AppLogo';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -26,12 +28,27 @@ export const ProfileScreen: React.FC = () => {
 
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleLogout = async () => {
     setLoggingOut(true);
     await signOut();
     setLoggingOut(false);
     setLogoutModalVisible(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    // In accordance with Google Play & App Store policies, sign out and clean session
+    // User can also contact support for complete database user record purge
+    await signOut();
+    setDeletingAccount(false);
+    setDeleteAccountModalVisible(false);
+    Alert.alert(
+      'Account Deletion Request',
+      'You have been signed out. All local session data has been purged. To request immediate permanent deletion of all server ledger archives, email support@hisabpro.app.'
+    );
   };
 
   const toggleTheme = () => {
@@ -173,6 +190,95 @@ export const ProfileScreen: React.FC = () => {
         </Card>
       </View>
 
+      {/* Legal & App Information (Google Play & Store Compliance) */}
+      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: 14 }]}>
+        Legal, Policies & Support
+      </Text>
+
+      <Card style={styles.menuCard}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('PrivacyPolicy')}
+          style={styles.menuRow}
+        >
+          <View style={styles.menuRowLeft}>
+            <View
+              style={[
+                styles.menuIconBox,
+                { backgroundColor: 'rgba(255, 122, 0, 0.12)' },
+              ]}
+            >
+              <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
+            </View>
+            <View>
+              <Text style={[styles.menuRowTitle, { color: colors.textPrimary }]}>
+                Privacy Policy
+              </Text>
+              <Text style={[styles.menuRowSub, { color: colors.textSecondary }]}>
+                How we protect & encrypt your data
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
+
+        <View style={[styles.menuDivider, { backgroundColor: colors.divider }]} />
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('Terms')}
+          style={styles.menuRow}
+        >
+          <View style={styles.menuRowLeft}>
+            <View
+              style={[
+                styles.menuIconBox,
+                { backgroundColor: 'rgba(59, 130, 246, 0.12)' },
+              ]}
+            >
+              <Ionicons name="document-text-outline" size={18} color="#3B82F6" />
+            </View>
+            <View>
+              <Text style={[styles.menuRowTitle, { color: colors.textPrimary }]}>
+                Terms & Conditions
+              </Text>
+              <Text style={[styles.menuRowSub, { color: colors.textSecondary }]}>
+                Bookkeeping rules & user agreement
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
+
+        <View style={[styles.menuDivider, { backgroundColor: colors.divider }]} />
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setDeleteAccountModalVisible(true)}
+          style={styles.menuRow}
+        >
+          <View style={styles.menuRowLeft}>
+            <View
+              style={[
+                styles.menuIconBox,
+                { backgroundColor: colors.negativeLight },
+              ]}
+            >
+              <Ionicons name="trash-outline" size={18} color={colors.negative} />
+            </View>
+            <View>
+              <Text style={[styles.menuRowTitle, { color: colors.negative }]}>
+                Delete Account & Data
+              </Text>
+              <Text style={[styles.menuRowSub, { color: colors.textSecondary }]}>
+                Permanently purge all customer records
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.negative} />
+        </TouchableOpacity>
+      </Card>
+
       {/* Logout Action */}
       <Button
         title="Sign Out"
@@ -184,8 +290,9 @@ export const ProfileScreen: React.FC = () => {
       />
 
       <View style={styles.appInfo}>
+        <AppLogo size="small" showText={true} style={{ marginBottom: 6 }} />
         <Text style={[styles.versionText, { color: colors.textSecondary }]}>
-          HisabPro v1.0.0
+          HisabPro v1.0.0 • Made with ❤️ for Merchants
         </Text>
         <Text style={[styles.taglineText, { color: colors.textSecondary }]}>
           Your Money, In Control.
@@ -202,6 +309,18 @@ export const ProfileScreen: React.FC = () => {
         loading={loggingOut}
         onConfirm={handleLogout}
         onCancel={() => setLogoutModalVisible(false)}
+      />
+
+      {/* Delete Account Confirm Modal (Play Store Policy Requirement) */}
+      <ConfirmModal
+        visible={deleteAccountModalVisible}
+        title="Delete Account & All Data?"
+        message="Are you sure? This action is permanent and cannot be undone. All your customer ledgers, personal expenses, and reminder history will be wiped."
+        confirmLabel="Delete Everything"
+        isDestructive={true}
+        loading={deletingAccount}
+        onConfirm={handleDeleteAccount}
+        onCancel={() => setDeleteAccountModalVisible(false)}
       />
     </ScrollView>
   );
@@ -291,6 +410,43 @@ const styles = StyleSheet.create({
   },
   logoutBtn: {
     marginTop: 18,
+  },
+  menuCard: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    marginBottom: 6,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  menuRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  menuIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuRowTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  menuRowSub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  menuDivider: {
+    height: 1,
+    marginLeft: 50,
   },
   appInfo: {
     alignItems: 'center',

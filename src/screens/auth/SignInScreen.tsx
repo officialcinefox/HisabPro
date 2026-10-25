@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AppLogo } from '../../components/AppLogo';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { useAuth } from '../../context/AuthContext';
@@ -60,10 +61,7 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.brandHeader}>
-          <View style={[styles.logoIconCircle, { backgroundColor: colors.primary }]}>
-            <Ionicons name="wallet" size={32} color="#0B0F11" />
-          </View>
-          <Text style={[styles.brandTitle, { color: colors.primary }]}>HISABPRO</Text>
+          <AppLogo size="large" showText={true} style={{ justifyContent: 'center', marginBottom: 6 }} />
           <Text style={[styles.tagline, { color: colors.textSecondary }]}>
             Your Money, In Control.
           </Text>
