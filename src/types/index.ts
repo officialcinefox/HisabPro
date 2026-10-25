@@ -104,6 +104,8 @@ export type RootStackParamList = {
   EditProfile: undefined;
   PrivacyPolicy: undefined;
   Terms: undefined;
+  Notifications: undefined;
+  HelpSupport: undefined;
 };
 
 export type AuthStackParamList = {

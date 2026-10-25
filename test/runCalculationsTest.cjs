@@ -143,4 +143,67 @@ assert(dash.netBalance === 1500, 'Dashboard net balance is 1500 (3000 - 1500)');
 assert(formatCurrency(125000) === '₹1,25,000', 'Formatted 125000 is ₹1,25,000');
 assert(formatCurrency(-3500) === '₹3,500', 'Formatted -3500 is ₹3,500');
 
+// 6. Number to words Indian
+function numberToWordsIndian(amount) {
+  const rounded = Math.round(Math.abs(amount));
+  if (rounded === 0) return 'Rupees Zero Only';
+
+  const ones = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+    'Seventeen', 'Eighteen', 'Nineteen',
+  ];
+  const tens = [
+    '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety',
+  ];
+
+  function convertTwoDigits(n) {
+    if (n < 20) return ones[n];
+    const t = Math.floor(n / 10);
+    const r = n % 10;
+    return tens[t] + (r > 0 ? ' ' + ones[r] : '');
+  }
+
+  function convertThreeDigits(n) {
+    const h = Math.floor(n / 100);
+    const rest = n % 100;
+    let res = '';
+    if (h > 0) res += ones[h] + ' Hundred';
+    if (rest > 0) {
+      if (res) res += ' and ';
+      res += convertTwoDigits(rest);
+    }
+    return res;
+  }
+
+  const crores = Math.floor(rounded / 10000000);
+  let rem = rounded % 10000000;
+  const lakhs = Math.floor(rem / 100000);
+  rem %= 100000;
+  const thousands = Math.floor(rem / 1000);
+  rem %= 1000;
+  const hundreds = rem;
+
+  const parts = [];
+  if (crores > 0) parts.push(convertThreeDigits(crores) + ' Crore');
+  if (lakhs > 0) parts.push(convertThreeDigits(lakhs) + ' Lakh');
+  if (thousands > 0) parts.push(convertThreeDigits(thousands) + ' Thousand');
+  if (hundreds > 0) parts.push(convertThreeDigits(hundreds));
+
+  return 'Rupees ' + parts.join(' ') + ' Only';
+}
+
+assert(
+  numberToWordsIndian(42000) === 'Rupees Forty Two Thousand Only',
+  '42000 is Rupees Forty Two Thousand Only'
+);
+assert(
+  numberToWordsIndian(15000) === 'Rupees Fifteen Thousand Only',
+  '15000 is Rupees Fifteen Thousand Only'
+);
+assert(
+  numberToWordsIndian(57000) === 'Rupees Fifty Seven Thousand Only',
+  '57000 is Rupees Fifty Seven Thousand Only'
+);
+
 console.log('=== ALL TESTS PASSED! ===');

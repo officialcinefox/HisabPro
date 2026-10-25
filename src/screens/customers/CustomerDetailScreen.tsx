@@ -11,17 +11,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { BalanceBadge } from '../../components/BalanceBadge';
 import { Button } from '../../components/Button';
-import { Card } from '../../components/Card';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { ReminderCard } from '../../components/ReminderCard';
-import { TransactionRow } from '../../components/TransactionRow';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { dataService } from '../../services/dataService';
 import { Reminder, RootStackParamList, Transaction } from '../../types';
-import { formatCurrency } from '../../utils/formatting';
+import { formatCurrency, formatDate } from '../../utils/formatting';
 
 interface CustomerDetailScreenProps {
   navigation: NativeStackNavigationProp<RootStackParamList, 'CustomerDetail'>;
@@ -138,60 +135,81 @@ export const CustomerDetailScreen: React.FC<CustomerDetailScreenProps> = ({
     ? colors.negative
     : colors.settled;
 
+  const initialLetter = (customer.name || 'C').charAt(0).toUpperCase();
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Customer Header Card */}
-        <Card style={styles.headerCard}>
+        <View
+          style={[
+            styles.headerCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          {/* Top Info Row */}
           <View style={styles.headerTop}>
-            <View style={styles.customerNameBox}>
-              <Text style={[styles.customerName, { color: colors.textPrimary }]}>
-                {customer.name}
-              </Text>
-              {customer.phone ? (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={handleCall}
-                  style={styles.phoneClickable}
+            <View style={styles.headerLeftInfo}>
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarInitial}>{initialLetter}</Text>
+              </View>
+              <View style={styles.customerNameCol}>
+                <Text
+                  style={[styles.customerName, { color: colors.textPrimary }]}
+                  numberOfLines={1}
                 >
-                  <Ionicons name="call" size={13} color={colors.primary} />
-                  <Text style={[styles.customerPhone, { color: colors.primary }]}>
-                    {customer.phone}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={[styles.noPhoneText, { color: colors.textSecondary }]}>
-                  No phone number provided
+                  {customer.name}
                 </Text>
-              )}
+                {customer.phone ? (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={handleCall}
+                    style={styles.phoneClickable}
+                  >
+                    <Ionicons name="call" size={12} color={colors.primary} />
+                    <Text style={[styles.customerPhone, { color: colors.primary }]}>
+                      {customer.phone}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={[styles.noPhoneText, { color: colors.textSecondary }]}>
+                    No phone number
+                  </Text>
+                )}
+              </View>
             </View>
 
+            {/* Red Circle Delete Trash Button */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setDeleteCustomerModal(true)}
-              style={[
-                styles.deleteCustomerBtn,
-                { backgroundColor: colors.negativeLight },
-              ]}
+              style={styles.deleteCustomerBtn}
             >
-              <Ionicons name="trash-outline" size={18} color={colors.negative} />
+              <Ionicons name="trash-outline" size={17} color="#EF4444" />
             </TouchableOpacity>
           </View>
 
           {customer.notes ? (
-            <View style={styles.notesContainer}>
-              <Text style={[styles.notesLabel, { color: colors.textSecondary }]}>
-                Notes:
-              </Text>
+            <View
+              style={[
+                styles.notesContainer,
+                { backgroundColor: colors.cardElevated, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.notesLabel, { color: colors.textSecondary }]}>Notes:</Text>
               <Text style={[styles.notesText, { color: colors.textPrimary }]}>
                 {customer.notes}
               </Text>
             </View>
           ) : null}
 
+          {/* Divider */}
           <View style={[styles.divider, { backgroundColor: colors.divider }]} />
 
-          {/* Balance Overview */}
+          {/* Outstanding Balance Row */}
           <View style={styles.balanceRow}>
             <View>
               <Text style={[styles.balanceSub, { color: colors.textSecondary }]}>
@@ -201,10 +219,55 @@ export const CustomerDetailScreen: React.FC<CustomerDetailScreenProps> = ({
                 {formatCurrency(customer.displayAmount, true)}
               </Text>
             </View>
-            <BalanceBadge status={customer.status} size="medium" />
+
+            {/* Status Pill Badge */}
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: isLenaHai
+                    ? 'rgba(34, 197, 94, 0.15)'
+                    : isDenaHai
+                    ? 'rgba(239, 68, 68, 0.15)'
+                    : 'rgba(156, 163, 175, 0.15)',
+                  borderColor: isLenaHai
+                    ? 'rgba(34, 197, 94, 0.35)'
+                    : isDenaHai
+                    ? 'rgba(239, 68, 68, 0.35)'
+                    : 'rgba(156, 163, 175, 0.35)',
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor: isLenaHai
+                      ? colors.positive
+                      : isDenaHai
+                      ? colors.negative
+                      : colors.settled,
+                  },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.statusText,
+                  {
+                    color: isLenaHai
+                      ? colors.positive
+                      : isDenaHai
+                      ? colors.negative
+                      : colors.settled,
+                  },
+                ]}
+              >
+                {isLenaHai ? 'To Receive' : isDenaHai ? 'To Pay' : 'Settled'}
+              </Text>
+            </View>
           </View>
 
-          {/* Summary Breakdown */}
+          {/* 3-Column Stats Box */}
           <View
             style={[
               styles.breakdownRow,
@@ -242,10 +305,11 @@ export const CustomerDetailScreen: React.FC<CustomerDetailScreenProps> = ({
               </Text>
             </View>
           </View>
-        </Card>
+        </View>
 
-        {/* Quick Action Buttons */}
-        <View style={styles.quickBar}>
+        {/* 2x2 Action Buttons Grid */}
+        {/* Row 1: You Gave (+) & You Got (-) */}
+        <View style={styles.actionGridRow}>
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() =>
@@ -254,10 +318,16 @@ export const CustomerDetailScreen: React.FC<CustomerDetailScreenProps> = ({
                 initialType: 'you_gave',
               })
             }
-            style={[styles.quickBtn, { backgroundColor: colors.negativeLight }]}
+            style={[
+              styles.actionPillBtn,
+              {
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                borderColor: '#EF4444',
+              },
+            ]}
           >
-            <Ionicons name="arrow-up-circle" size={18} color={colors.negative} />
-            <Text style={[styles.quickBtnText, { color: colors.negative }]}>
+            <Ionicons name="arrow-up-circle" size={18} color="#EF4444" />
+            <Text style={[styles.actionPillText, { color: '#EF4444' }]}>
               You Gave (+)
             </Text>
           </TouchableOpacity>
@@ -270,37 +340,62 @@ export const CustomerDetailScreen: React.FC<CustomerDetailScreenProps> = ({
                 initialType: 'you_got',
               })
             }
-            style={[styles.quickBtn, { backgroundColor: colors.positiveLight }]}
+            style={[
+              styles.actionPillBtn,
+              {
+                backgroundColor: 'rgba(34, 197, 94, 0.08)',
+                borderColor: '#22C55E',
+              },
+            ]}
           >
-            <Ionicons name="arrow-down-circle" size={18} color={colors.positive} />
-            <Text style={[styles.quickBtnText, { color: colors.positive }]}>
+            <Ionicons name="arrow-down-circle" size={18} color="#22C55E" />
+            <Text style={[styles.actionPillText, { color: '#22C55E' }]}>
               You Got (-)
             </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.secondaryActions}>
-          <Button
-            title="Add Reminder"
-            variant="secondary"
-            size="small"
-            icon={<Ionicons name="alarm-outline" size={16} color={colors.textPrimary} />}
-            onPress={() =>
-              navigation.navigate('AddReminder', { customerId: customer.id })
-            }
-            style={{ flex: 1 }}
-          />
+        {/* Row 2: Add Reminder & View Statement */}
+        <View style={styles.actionGridRow}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('AddReminder', { customerId: customer.id })}
+            style={[
+              styles.secondaryActionCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Ionicons name="alarm-outline" size={18} color={colors.primary} />
+            <Text
+              style={[styles.secondaryActionText, { color: colors.textPrimary }]}
+              numberOfLines={1}
+            >
+              Add Reminder
+            </Text>
+          </TouchableOpacity>
 
-          <Button
-            title="View Statement / Report"
-            variant="secondary"
-            size="small"
-            icon={<Ionicons name="document-text-outline" size={16} color={colors.primary} />}
-            onPress={() =>
-              navigation.navigate('CustomerReport', { customerId: customer.id })
-            }
-            style={{ flex: 1.3 }}
-          />
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('CustomerReport', { customerId: customer.id })}
+            style={[
+              styles.secondaryActionCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+            <Text
+              style={[styles.secondaryActionText, { color: colors.textPrimary }]}
+              numberOfLines={1}
+            >
+              View Statement / Report
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Reminders Section */}
@@ -334,28 +429,103 @@ export const CustomerDetailScreen: React.FC<CustomerDetailScreenProps> = ({
           </View>
 
           {transactions.length > 0 ? (
-            transactions.map((tx) => (
-              <TransactionRow
-                key={tx.id}
-                transaction={tx}
-                onDelete={(t) => {
-                  setTargetTx(t);
-                  setDeleteTxModal(true);
-                }}
-              />
-            ))
+            transactions.map((tx) => {
+              const isGave = tx.transaction_type === 'you_gave';
+              const typeColor = isGave ? '#EF4444' : '#22C55E';
+              const typeLabel = isGave ? 'You Gave' : 'You Got';
+              const signPrefix = isGave ? '+ ' : '- ';
+
+              return (
+                <View
+                  key={tx.id}
+                  style={[
+                    styles.txCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.txLeftCol}>
+                    <View
+                      style={[
+                        styles.txIconCircle,
+                        {
+                          backgroundColor: isGave
+                            ? 'rgba(239, 68, 68, 0.15)'
+                            : 'rgba(34, 197, 94, 0.15)',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={isGave ? 'arrow-up' : 'arrow-down'}
+                        size={18}
+                        color={typeColor}
+                      />
+                    </View>
+
+                    <View style={styles.txDetailsCol}>
+                      <View style={styles.txTypeRow}>
+                        <Text style={[styles.txTypeLabel, { color: typeColor }]}>
+                          {typeLabel}
+                        </Text>
+                        <Text style={[styles.txDateText, { color: colors.textSecondary }]}>
+                          • {formatDate(tx.transaction_date)}
+                        </Text>
+                      </View>
+
+                      {tx.note ? (
+                        <Text
+                          style={[styles.txNoteText, { color: colors.textSecondary }]}
+                          numberOfLines={2}
+                        >
+                          {tx.note}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+
+                  <View style={styles.txRightCol}>
+                    <Text style={[styles.txAmountText, { color: typeColor }]}>
+                      {signPrefix}
+                      {formatCurrency(tx.amount, true)}
+                    </Text>
+
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setTargetTx(tx);
+                        setDeleteTxModal(true);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={styles.txDeleteBtn}
+                    >
+                      <Ionicons name="trash-outline" size={15} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })
           ) : (
-            <Card style={styles.emptyLedgerCard}>
+            <View
+              style={[
+                styles.emptyLedgerCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
               <Ionicons
                 name="receipt-outline"
-                size={32}
+                size={34}
                 color={colors.textSecondary}
                 style={{ marginBottom: 8 }}
               />
               <Text style={[styles.emptyLedgerText, { color: colors.textSecondary }]}>
                 No transactions recorded for this customer yet.
               </Text>
-            </Card>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -377,7 +547,7 @@ export const CustomerDetailScreen: React.FC<CustomerDetailScreenProps> = ({
         visible={deleteTxModal}
         title="Delete Transaction?"
         message={`Are you sure you want to delete this ${
-          targetTx?.transaction_type === 'you_gave' ? 'Maine Diye' : 'Mujhe Mile'
+          targetTx?.transaction_type === 'you_gave' ? 'You Gave' : 'You Got'
         } transaction of ${formatCurrency(targetTx?.amount || 0)}?\n\nThe customer balance will be recalculated immediately.`}
         confirmLabel="Delete Entry"
         isDestructive
@@ -416,27 +586,48 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   headerCard: {
-    padding: 18,
+    padding: 16,
     borderRadius: 18,
+    borderWidth: 1,
     marginBottom: 14,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
-  customerNameBox: {
+  headerLeftInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#242220',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  avatarInitial: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#FF7A00',
+  },
+  customerNameCol: {
     flex: 1,
   },
   customerName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
     letterSpacing: -0.3,
   },
   phoneClickable: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 3,
     gap: 4,
   },
   customerPhone: {
@@ -451,14 +642,15 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   notesContainer: {
-    marginTop: 10,
+    marginTop: 12,
     padding: 10,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 10,
+    borderWidth: 1,
   },
   notesLabel: {
     fontSize: 11,
@@ -482,17 +674,36 @@ const styles = StyleSheet.create({
   balanceSub: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   balanceTotal: {
     fontSize: 26,
     fontWeight: '900',
     marginTop: 2,
   },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 100,
+    borderWidth: 1,
+    gap: 6,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   breakdownRow: {
     flexDirection: 'row',
     borderRadius: 12,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     borderWidth: 1,
   },
   breakdownCol: {
@@ -512,28 +723,39 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 3,
   },
-  quickBar: {
+  actionGridRow: {
     flexDirection: 'row',
     gap: 10,
     marginBottom: 10,
   },
-  quickBtn: {
+  actionPillBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
     gap: 6,
   },
-  quickBtnText: {
+  actionPillText: {
     fontSize: 14,
     fontWeight: '800',
   },
-  secondaryActions: {
+  secondaryActionCard: {
+    flex: 1,
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 6,
+  },
+  secondaryActionText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   section: {
     marginTop: 10,
@@ -550,10 +772,69 @@ const styles = StyleSheet.create({
   },
   txCountBadge: {
     fontSize: 12,
+    fontWeight: '600',
+  },
+  txCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginVertical: 4,
+  },
+  txLeftCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  txIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  txDetailsCol: {
+    flex: 1,
+  },
+  txTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  txTypeLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  txDateText: {
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  txNoteText: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  txRightCol: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  txAmountText: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  txDeleteBtn: {
+    padding: 4,
   },
   emptyLedgerCard: {
     alignItems: 'center',
     paddingVertical: 28,
+    borderRadius: 14,
+    borderWidth: 1,
     borderStyle: 'dashed',
   },
   emptyLedgerText: {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Text } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '../context/ThemeContext';
 import { AddCustomerScreen } from '../screens/customers/AddCustomerScreen';
@@ -10,6 +11,8 @@ import { AddExpenseScreen } from '../screens/expenses/AddExpenseScreen';
 import { PrivacyPolicyScreen } from '../screens/legal/PrivacyPolicyScreen';
 import { TermsScreen } from '../screens/legal/TermsScreen';
 import { EditProfileScreen } from '../screens/profile/EditProfileScreen';
+import { HelpSupportScreen } from '../screens/profile/HelpSupportScreen';
+import { NotificationsScreen } from '../screens/profile/NotificationsScreen';
 import { RootStackParamList } from '../types';
 import { TabNavigator } from './TabNavigator';
 
@@ -44,7 +47,11 @@ export const AppNavigator: React.FC = () => {
         name="CustomerDetail"
         component={CustomerDetailScreen}
         options={{
-          headerTitle: 'Customer Ledger',
+          headerTitle: () => (
+            <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary }}>
+              Customer <Text style={{ color: colors.primary }}>Ledger</Text>
+            </Text>
+          ),
         }}
       />
 
@@ -76,7 +83,11 @@ export const AppNavigator: React.FC = () => {
         name="CustomerReport"
         component={CustomerReportScreen}
         options={{
-          headerTitle: 'Account Statement',
+          headerTitle: () => (
+            <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary }}>
+              Account <Text style={{ color: colors.primary }}>Statement</Text>
+            </Text>
+          ),
         }}
       />
 
@@ -109,6 +120,22 @@ export const AppNavigator: React.FC = () => {
         component={TermsScreen}
         options={{
           headerTitle: 'Terms & Conditions',
+        }}
+      />
+
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{
+          headerTitle: 'Notifications',
+        }}
+      />
+
+      <Stack.Screen
+        name="HelpSupport"
+        component={HelpSupportScreen}
+        options={{
+          headerTitle: 'Help & Support',
         }}
       />
     </Stack.Navigator>

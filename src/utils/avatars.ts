@@ -4,33 +4,73 @@ export interface AvatarOption {
   id: string;
   name: string;
   gender: 'male' | 'female';
+  category: '3d' | 'illustrated';
   source: ImageSourcePropType;
 }
 
 export const AVATAR_OPTIONS: AvatarOption[] = [
   {
-    id: 'male1',
+    id: 'abhishek',
     name: 'Abhishek (Default)',
     gender: 'male',
+    category: '3d',
+    source: require('../../assets/avatars/abhishek.png'),
+  },
+  {
+    id: 'male1',
+    name: '3D Bro',
+    gender: 'male',
+    category: '3d',
     source: require('../../assets/avatars/male1.png'),
   },
   {
     id: 'male2',
-    name: 'Merchant Bro',
+    name: '3D Merchant',
     gender: 'male',
+    category: '3d',
     source: require('../../assets/avatars/male2.png'),
   },
   {
     id: 'female1',
-    name: 'Pooja',
+    name: 'Pooja (3D)',
     gender: 'female',
+    category: '3d',
     source: require('../../assets/avatars/female1.png'),
   },
   {
     id: 'female2',
-    name: 'Ananya',
+    name: 'Ananya (3D)',
     gender: 'female',
+    category: '3d',
     source: require('../../assets/avatars/female2.png'),
+  },
+  {
+    id: 'male_rohan',
+    name: 'Rohan',
+    gender: 'male',
+    category: 'illustrated',
+    source: require('../../assets/avatars/male_rohan.png'),
+  },
+  {
+    id: 'male_vikram',
+    name: 'Vikram',
+    gender: 'male',
+    category: 'illustrated',
+    source: require('../../assets/avatars/male_vikram.png'),
+  },
+  {
+    id: 'female_priya',
+    name: 'Priya',
+    gender: 'female',
+    category: 'illustrated',
+    source: require('../../assets/avatars/female_priya.png'),
+  },
+  {
+    id: 'female_sneha',
+    name: 'Sneha',
+    gender: 'female',
+    category: 'illustrated',
+    source: require('../../assets/avatars/female_sneha.png'),
   },
 ];
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Image,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -26,10 +27,11 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
   onClose,
 }) => {
   const { colors } = useTheme();
-  const [activeTab, setActiveTab] = useState<'all' | 'male' | 'female'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'male' | 'female' | '3d'>('all');
 
   const filteredAvatars = AVATAR_OPTIONS.filter((a) => {
     if (activeTab === 'all') return true;
+    if (activeTab === '3d') return a.category === '3d';
     return a.gender === activeTab;
   });
 
@@ -53,10 +55,10 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
               <View style={styles.headerRow}>
                 <View>
                   <Text style={[styles.title, { color: colors.textPrimary }]}>
-                    Choose 3D Character
+                    Choose Avatar ✨
                   </Text>
                   <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    Select your merchant profile avatar
+                    Pick your personalized profile look
                   </Text>
                 </View>
 
@@ -72,7 +74,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                 </TouchableOpacity>
               </View>
 
-              {/* Gender Filter Tabs */}
+              {/* Filter Tabs */}
               <View
                 style={[
                   styles.filterRow,
@@ -141,12 +143,37 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                     Female 👧
                   </Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setActiveTab('3d')}
+                  style={[
+                    styles.filterTab,
+                    activeTab === '3d' && { backgroundColor: colors.primary },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.filterTabText,
+                      {
+                        color: activeTab === '3d' ? '#0B0F11' : colors.textSecondary,
+                        fontWeight: activeTab === '3d' ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    3D 🌟
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Avatar Grid */}
-              <View style={styles.grid}>
+              {/* Avatar Grid (Scrollable) */}
+              <ScrollView
+                style={styles.scrollArea}
+                contentContainerStyle={styles.grid}
+                showsVerticalScrollIndicator={false}
+              >
                 {filteredAvatars.map((item: AvatarOption) => {
-                  const isSelected = (selectedAvatarId || 'male1') === item.id;
+                  const isSelected = (selectedAvatarId || 'abhishek') === item.id;
                   return (
                     <TouchableOpacity
                       key={item.id}
@@ -160,7 +187,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                         {
                           borderColor: isSelected ? colors.primary : colors.border,
                           backgroundColor: isSelected
-                            ? 'rgba(255, 122, 0, 0.12)'
+                            ? 'rgba(255, 122, 0, 0.14)'
                             : colors.cardElevated,
                         },
                       ]}
@@ -183,7 +210,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                           styles.avatarName,
                           {
                             color: isSelected ? colors.primary : colors.textPrimary,
-                            fontWeight: isSelected ? '700' : '500',
+                            fontWeight: isSelected ? '800' : '600',
                           },
                         ]}
                         numberOfLines={1}
@@ -193,7 +220,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                     </TouchableOpacity>
                   );
                 })}
-              </View>
+              </ScrollView>
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -205,15 +232,16 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalCard: {
     width: '100%',
-    maxWidth: 420,
-    borderRadius: 20,
+    maxWidth: 440,
+    maxHeight: '80%',
+    borderRadius: 24,
     borderWidth: 1,
     padding: 20,
   },
@@ -224,25 +252,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
+    letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 12,
     marginTop: 2,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
   },
   filterRow: {
     flexDirection: 'row',
-    borderRadius: 10,
-    padding: 4,
+    borderRadius: 12,
+    padding: 3,
     borderWidth: 1,
     marginBottom: 16,
   },
@@ -251,40 +280,45 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 7,
+    borderRadius: 9,
   },
   filterTabText: {
-    fontSize: 13,
+    fontSize: 12,
+  },
+  scrollArea: {
+    maxHeight: 340,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
     justifyContent: 'space-between',
+    paddingBottom: 10,
   },
   avatarItem: {
-    width: '47%',
-    borderRadius: 14,
+    width: '30.5%',
+    borderRadius: 16,
     borderWidth: 2,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     alignItems: 'center',
   },
   imageContainer: {
     position: 'relative',
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
     overflow: 'hidden',
   },
   avatarImg: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
   },
   checkBadge: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
+    bottom: 0,
+    right: 0,
     width: 20,
     height: 20,
     borderRadius: 10,
@@ -294,7 +328,7 @@ const styles = StyleSheet.create({
     borderColor: '#0B0F11',
   },
   avatarName: {
-    fontSize: 13,
+    fontSize: 11,
     marginTop: 8,
     textAlign: 'center',
   },

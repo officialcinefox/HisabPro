@@ -13,8 +13,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Button } from '../../components/Button';
-import { Card } from '../../components/Card';
 import { Input } from '../../components/Input';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -144,7 +142,6 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
     if (canOpen) {
       await Linking.openURL(whatsappUrl);
     } else {
-      // Fallback to standard native Share sheet
       await Share.share({
         message: text,
         title: `HisabPro Statement - ${customer.name}`,
@@ -152,48 +149,56 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
     }
   };
 
+  const isLenaHai = customer.status === 'lena_hai';
+  const isDenaHai = customer.status === 'dena_hai';
+  const balanceColor = isLenaHai
+    ? colors.positive
+    : isDenaHai
+    ? colors.negative
+    : colors.settled;
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
     >
-      {/* Customer Header Info */}
-      <Card style={styles.headerCard}>
-        <Text style={[styles.reportTitle, { color: colors.textSecondary }]}>
+      {/* Customer Header Info Card */}
+      <View
+        style={[
+          styles.headerCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.reportSubtitle, { color: colors.textSecondary }]}>
           STATEMENT OF ACCOUNT
         </Text>
         <Text style={[styles.customerName, { color: colors.textPrimary }]}>
           {customer.name}
         </Text>
         {customer.phone ? (
-          <Text style={[styles.phoneText, { color: colors.textSecondary }]}>
-            📞 {customer.phone}
-          </Text>
+          <View style={styles.phoneRow}>
+            <Ionicons name="call-outline" size={13} color={colors.primary} />
+            <Text style={[styles.phoneText, { color: colors.textSecondary }]}>
+              {customer.phone}
+            </Text>
+          </View>
         ) : null}
 
         <View style={[styles.divider, { backgroundColor: colors.divider }]} />
 
         <View style={styles.currentBalanceRow}>
           <Text style={[styles.currentBalanceLabel, { color: colors.textSecondary }]}>
-            Overall Balance ({customer.status === 'lena_hai' ? 'To Receive' : customer.status === 'dena_hai' ? 'To Pay' : 'Settled'}):
+            Overall Balance ({isLenaHai ? 'To Receive' : isDenaHai ? 'To Pay' : 'Settled'}):
           </Text>
-          <Text
-            style={[
-              styles.currentBalanceValue,
-              {
-                color:
-                  customer.status === 'lena_hai'
-                    ? colors.positive
-                    : customer.status === 'dena_hai'
-                    ? colors.negative
-                    : colors.settled,
-              },
-            ]}
-          >
+          <Text style={[styles.currentBalanceValue, { color: balanceColor }]}>
             {formatCurrency(customer.displayAmount)}
           </Text>
         </View>
-      </Card>
+      </View>
 
       {/* Period Selection Tabs */}
       <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
@@ -219,7 +224,7 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
               styles.periodBtnText,
               {
                 color: periodMode === '7days' ? '#0B0F11' : colors.textSecondary,
-                fontWeight: periodMode === '7days' ? '700' : '500',
+                fontWeight: periodMode === '7days' ? '800' : '600',
               },
             ]}
           >
@@ -240,7 +245,7 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
               styles.periodBtnText,
               {
                 color: periodMode === '30days' ? '#0B0F11' : colors.textSecondary,
-                fontWeight: periodMode === '30days' ? '700' : '500',
+                fontWeight: periodMode === '30days' ? '800' : '600',
               },
             ]}
           >
@@ -261,7 +266,7 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
               styles.periodBtnText,
               {
                 color: periodMode === 'custom' ? '#0B0F11' : colors.textSecondary,
-                fontWeight: periodMode === 'custom' ? '700' : '500',
+                fontWeight: periodMode === 'custom' ? '800' : '600',
               },
             ]}
           >
@@ -272,7 +277,12 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
 
       {/* Custom Date Range Inputs */}
       {periodMode === 'custom' ? (
-        <Card style={styles.customCard}>
+        <View
+          style={[
+            styles.customCard,
+            { backgroundColor: colors.cardElevated, borderColor: colors.border },
+          ]}
+        >
           <View style={styles.customRow}>
             <View style={{ flex: 1 }}>
               <Input
@@ -292,107 +302,175 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
               />
             </View>
           </View>
-        </Card>
+        </View>
       ) : null}
 
-      {/* Period Metrics */}
+      {/* Period Metrics Grid */}
       <View style={styles.metricsGrid}>
-        <Card style={styles.metricCard}>
+        <View
+          style={[
+            styles.metricCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Period Given
+            PERIOD GIVEN
           </Text>
           <Text style={[styles.metricValue, { color: colors.negative }]}>
             {formatCurrency(periodGave)}
           </Text>
-        </Card>
+        </View>
 
-        <Card style={styles.metricCard}>
+        <View
+          style={[
+            styles.metricCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Period Received
+            PERIOD RECEIVED
           </Text>
           <Text style={[styles.metricValue, { color: colors.positive }]}>
             {formatCurrency(periodGot)}
           </Text>
-        </Card>
+        </View>
 
-        <Card style={styles.metricCard}>
+        <View
+          style={[
+            styles.metricCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Entries
+            ENTRIES
           </Text>
           <Text style={[styles.metricValue, { color: colors.textPrimary }]}>
             {filteredTx.length}
           </Text>
-        </Card>
+        </View>
       </View>
 
-      {/* Sharing & Download Actions */}
+      {/* Action Buttons: Solid Orange PDF & Dark WhatsApp Button */}
       <View style={styles.actionsContainer}>
-        <Button
-          title="Download / Share PDF"
+        {/* PDF Button */}
+        <TouchableOpacity
+          activeOpacity={0.8}
           onPress={handleSharePdf}
-          loading={isGeneratingPdf}
-          size="medium"
-          icon={<Ionicons name="document-text" size={18} color="#0B0F11" />}
-          style={styles.primaryAction}
-        />
+          disabled={isGeneratingPdf}
+          style={[styles.primaryActionBtn, { backgroundColor: colors.primary }]}
+        >
+          <Ionicons name="document-text" size={19} color="#0B0F11" />
+          <Text style={styles.primaryActionText}>
+            {isGeneratingPdf ? 'Generating PDF...' : 'Download / Share PDF'}
+          </Text>
+        </TouchableOpacity>
 
-        <Button
-          title="Share via WhatsApp"
-          variant="secondary"
+        {/* WhatsApp Button */}
+        <TouchableOpacity
+          activeOpacity={0.8}
           onPress={handleShareWhatsApp}
-          size="medium"
-          icon={<Ionicons name="logo-whatsapp" size={18} color="#25D366" />}
-          style={styles.secondaryAction}
-        />
+          style={[
+            styles.secondaryActionBtn,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Ionicons name="logo-whatsapp" size={19} color="#25D366" />
+          <Text style={[styles.secondaryActionText, { color: colors.textPrimary }]}>
+            Share via WhatsApp
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Transactions in Period */}
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: 16 }]}>
-        Ledger Entries ({filteredTx.length})
-      </Text>
+      <View style={styles.ledgerSectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>
+          Ledger Entries ({filteredTx.length})
+        </Text>
+      </View>
 
       {filteredTx.length > 0 ? (
         filteredTx.map((tx) => {
           const isGave = tx.transaction_type === 'you_gave';
+          const typeColor = isGave ? '#EF4444' : '#22C55E';
+          const typeLabel = isGave ? 'You Gave' : 'You Got';
+          const signPrefix = isGave ? '+ ' : '- ';
+
           return (
-            <Card key={tx.id} style={styles.txRowCard}>
+            <View
+              key={tx.id}
+              style={[
+                styles.txRowCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
               <View style={styles.txRowLeft}>
-                <Text
+                <View
                   style={[
-                    styles.txRowType,
-                    { color: isGave ? colors.negative : colors.positive },
+                    styles.txIconCircle,
+                    {
+                      backgroundColor: isGave
+                        ? 'rgba(239, 68, 68, 0.15)'
+                        : 'rgba(34, 197, 94, 0.15)',
+                    },
                   ]}
                 >
-                  {isGave ? 'Maine Diye' : 'Mujhe Mile'}
-                </Text>
-                <Text style={[styles.txRowDate, { color: colors.textSecondary }]}>
-                  {formatDate(tx.transaction_date)}
-                </Text>
-                {tx.note ? (
-                  <Text style={[styles.txRowNote, { color: colors.textSecondary }]}>
-                    {tx.note}
-                  </Text>
-                ) : null}
+                  <Ionicons
+                    name={isGave ? 'arrow-up' : 'arrow-down'}
+                    size={17}
+                    color={typeColor}
+                  />
+                </View>
+
+                <View style={styles.txDetailsCol}>
+                  <View style={styles.txTypeRow}>
+                    <Text style={[styles.txTypeLabel, { color: typeColor }]}>
+                      {typeLabel}
+                    </Text>
+                    <Text style={[styles.txDateText, { color: colors.textSecondary }]}>
+                      • {formatDate(tx.transaction_date)}
+                    </Text>
+                  </View>
+                  {tx.note ? (
+                    <Text
+                      style={[styles.txNoteText, { color: colors.textSecondary }]}
+                      numberOfLines={2}
+                    >
+                      {tx.note}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
 
-              <Text
-                style={[
-                  styles.txRowAmount,
-                  { color: isGave ? colors.negative : colors.positive },
-                ]}
-              >
-                {isGave ? '+ ' : '- '}
+              <Text style={[styles.txRowAmount, { color: typeColor }]}>
+                {signPrefix}
                 {formatCurrency(tx.amount, true)}
               </Text>
-            </Card>
+            </View>
           );
         })
       ) : (
-        <Card style={styles.emptyCard}>
+        <View
+          style={[
+            styles.emptyCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Ionicons
+            name="receipt-outline"
+            size={32}
+            color={colors.textSecondary}
+            style={{ marginBottom: 8 }}
+          />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             No transactions found for the selected period.
           </Text>
-        </Card>
+        </View>
       )}
     </ScrollView>
   );
@@ -408,26 +486,34 @@ const styles = StyleSheet.create({
   },
   headerCard: {
     padding: 18,
-    borderRadius: 16,
+    borderRadius: 18,
+    borderWidth: 1,
     marginBottom: 16,
   },
-  reportTitle: {
+  reportSubtitle: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   customerName: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginTop: 2,
+    fontSize: 24,
+    fontWeight: '900',
+    marginTop: 4,
+    letterSpacing: -0.3,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
   },
   phoneText: {
     fontSize: 13,
-    marginTop: 3,
+    fontWeight: '600',
   },
   divider: {
     height: 1,
-    marginVertical: 12,
+    marginVertical: 14,
   },
   currentBalanceRow: {
     flexDirection: 'row',
@@ -439,7 +525,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   currentBalanceValue: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '900',
   },
   sectionTitle: {
@@ -449,23 +535,25 @@ const styles = StyleSheet.create({
   },
   periodSelector: {
     flexDirection: 'row',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 4,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   periodBtn: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 10,
   },
   periodBtnText: {
     fontSize: 13,
   },
   customCard: {
     padding: 12,
-    marginBottom: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 14,
   },
   customRow: {
     flexDirection: 'row',
@@ -477,59 +565,109 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     flex: 1,
-    padding: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
   },
   metricLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   metricValue: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
     marginTop: 4,
   },
   actionsContainer: {
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 18,
   },
-  primaryAction: {
-    width: '100%',
+  primaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
   },
-  secondaryAction: {
-    width: '100%',
+  primaryActionText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0B0F11',
+  },
+  secondaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+  },
+  secondaryActionText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  ledgerSectionHeader: {
+    marginBottom: 10,
   },
   txRowCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     marginVertical: 4,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1,
   },
   txRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  txIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  txDetailsCol: {
     flex: 1,
   },
-  txRowType: {
+  txTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  txTypeLabel: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  txRowDate: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  txRowNote: {
+  txDateText: {
     fontSize: 12,
+    marginLeft: 4,
+  },
+  txNoteText: {
+    fontSize: 11,
     marginTop: 2,
   },
   txRowAmount: {
     fontSize: 15,
     fontWeight: '800',
+    letterSpacing: -0.2,
   },
   emptyCard: {
-    padding: 24,
+    padding: 28,
     alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
   },
   emptyText: {
     fontSize: 13,

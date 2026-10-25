@@ -17,6 +17,7 @@ import { ExpenseCategoryBar } from '../../components/ExpenseCategoryBar';
 import { ExpenseCircularChart } from '../../components/ExpenseCircularChart';
 import { FloatingActionButton } from '../../components/FloatingActionButton';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
+import { MonthPickerModal } from '../../components/MonthPickerModal';
 import { SearchBar } from '../../components/SearchBar';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -53,19 +54,23 @@ export const ExpensesScreen: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [chartView, setChartView] = useState<'circle' | 'bars'>('circle');
 
+  const now = new Date();
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [monthPickerVisible, setMonthPickerVisible] = useState(false);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await refreshData();
     setRefreshing(false);
   };
 
-  const todayStr = getTodayDateString();
-  const currentMonthPrefix = todayStr.substring(0, 7); // YYYY-MM
+  const selectedMonthPrefix = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
 
   // Month label format e.g. "Oct 2026"
   const currentMonthLabel = useMemo(() => {
     try {
-      const d = new Date();
+      const d = new Date(selectedYear, selectedMonth, 1);
       return new Intl.DateTimeFormat('en-US', {
         month: 'short',
         year: 'numeric',
@@ -73,20 +78,21 @@ export const ExpensesScreen: React.FC = () => {
     } catch {
       return 'This Month';
     }
-  }, []);
+  }, [selectedYear, selectedMonth]);
 
-  // Filtered expenses based on search query
+  // Filtered expenses based on search query AND selected month
   const filteredExpenses = useMemo(() => {
-    if (!searchQuery.trim()) return expenses;
+    let list = expenses.filter((e) => e.expense_date.startsWith(selectedMonthPrefix));
+    if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase().trim();
-    return expenses.filter(
+    return list.filter(
       (e) =>
         e.category.toLowerCase().includes(q) ||
         (e.note && e.note.toLowerCase().includes(q))
     );
-  }, [expenses, searchQuery]);
+  }, [expenses, selectedMonthPrefix, searchQuery]);
 
-  // Current Month calculations
+  // Selected Month calculations
   const { monthTotal, categoryBreakdown } = useMemo(() => {
     let total = 0;
     const catSums: Record<ExpenseCategory, number> = {
@@ -98,7 +104,7 @@ export const ExpensesScreen: React.FC = () => {
     };
 
     for (const exp of expenses) {
-      if (exp.expense_date.startsWith(currentMonthPrefix)) {
+      if (exp.expense_date.startsWith(selectedMonthPrefix)) {
         const amt = Number(exp.amount) || 0;
         total += amt;
         if (catSums[exp.category] !== undefined) {
@@ -116,7 +122,7 @@ export const ExpensesScreen: React.FC = () => {
     }).filter((item) => item.amount > 0);
 
     return { monthTotal: total, categoryBreakdown: breakdown };
-  }, [expenses, currentMonthPrefix]);
+  }, [expenses, selectedMonthPrefix]);
 
   const confirmDelete = async () => {
     if (!targetExpense) return;
@@ -150,6 +156,7 @@ export const ExpensesScreen: React.FC = () => {
 
         <TouchableOpacity
           activeOpacity={0.8}
+          onPress={() => setMonthPickerVisible(true)}
           style={[
             styles.monthSelectPill,
             { backgroundColor: colors.cardElevated, borderColor: colors.border },
@@ -449,6 +456,18 @@ export const ExpensesScreen: React.FC = () => {
           setDeleteModalVisible(false);
           setTargetExpense(null);
         }}
+      />
+
+      {/* Month & Year Picker Modal */}
+      <MonthPickerModal
+        visible={monthPickerVisible}
+        selectedYear={selectedYear}
+        selectedMonth={selectedMonth}
+        onSelect={(year, month) => {
+          setSelectedYear(year);
+          setSelectedMonth(month);
+        }}
+        onClose={() => setMonthPickerVisible(false)}
       />
     </View>
   );
