@@ -18,7 +18,7 @@ import { MonthPickerModal } from '../../components/MonthPickerModal';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
-import { RootStackParamList } from '../../types';
+import { isUserAdmin, RootStackParamList } from '../../types';
 import { getAvatarSource } from '../../utils/avatars';
 import { formatCurrency } from '../../utils/formatting';
 
@@ -27,6 +27,8 @@ export const ProfileScreen: React.FC = () => {
   const { profile, user, signOut, updateAvatar } = useAuth();
   const { setThemeMode, colors, isDark } = useTheme();
   const { customers, transactions, expenses, dashboardSummary } = useData();
+
+  const isAdmin = isUserAdmin(profile, user?.email);
 
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -131,9 +133,17 @@ export const ProfileScreen: React.FC = () => {
 
           {/* User Name & Email */}
           <View style={styles.userInfoCol}>
-            <Text style={[styles.userName, { color: colors.textPrimary }]}>
-              {profile?.display_name || 'Abhishek Dagar'}
-            </Text>
+            <View style={styles.userNameBadgeRow}>
+              <Text style={[styles.userName, { color: colors.textPrimary }]}>
+                {profile?.display_name || 'Abhishek Dagar'}
+              </Text>
+              {isAdmin && (
+                <View style={styles.adminRoleBadge}>
+                  <Text style={{ fontSize: 10 }}>👑</Text>
+                  <Text style={styles.adminRoleBadgeText}>Admin</Text>
+                </View>
+              )}
+            </View>
             <Text style={[styles.userEmail, { color: colors.textSecondary }]}>
               {profile?.email || user?.email || 'abhidagar6319@gmail.com'}
             </Text>
@@ -414,6 +424,41 @@ export const ProfileScreen: React.FC = () => {
           </Text>
         </View>
       </View>
+
+      {/* Admin Access Section - ONLY visible if isAdmin */}
+      {isAdmin && (
+        <View style={styles.adminAccessSection}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 10 }]}>
+            Admin <Text style={{ color: colors.primary }}>Access</Text>
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('AdminDashboard')}
+            style={[
+              styles.adminAccessCard,
+              {
+                backgroundColor: isDark ? '#1C1510' : '#FFF9F3',
+                borderColor: '#FF7A00',
+              },
+            ]}
+          >
+            <View style={styles.adminAccessLeft}>
+              <View style={styles.adminCrownBox}>
+                <Text style={{ fontSize: 20 }}>👑</Text>
+              </View>
+              <View style={styles.adminAccessTextCol}>
+                <Text style={[styles.adminAccessTitle, { color: colors.textPrimary }]}>
+                  Go to Admin Dashboard
+                </Text>
+                <Text style={[styles.adminAccessSubtitle, { color: colors.textSecondary }]}>
+                  Manage users, data, settings and more
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Settings & Support Section */}
       <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: 14 }]}>
@@ -908,5 +953,66 @@ const styles = StyleSheet.create({
   signOutBtnText: {
     fontSize: 16,
     fontWeight: '800',
+  },
+  userNameBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  adminRoleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 122, 0, 0.15)',
+    borderWidth: 1,
+    borderColor: '#FF7A00',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 100,
+    gap: 4,
+  },
+  adminRoleBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#FF7A00',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  adminAccessSection: {
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  adminAccessCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+  },
+  adminAccessLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  adminCrownBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 122, 0, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminAccessTextCol: {
+    flex: 1,
+  },
+  adminAccessTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  adminAccessSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
   },
 });

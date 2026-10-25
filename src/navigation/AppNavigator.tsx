@@ -13,6 +13,7 @@ import { TermsScreen } from '../screens/legal/TermsScreen';
 import { EditProfileScreen } from '../screens/profile/EditProfileScreen';
 import { HelpSupportScreen } from '../screens/profile/HelpSupportScreen';
 import { NotificationsScreen } from '../screens/profile/NotificationsScreen';
+import { AdminDashboardScreen } from '../screens/admin/AdminDashboardScreen';
 import { RootStackParamList } from '../types';
 import { TabNavigator } from './TabNavigator';
 
@@ -136,6 +137,18 @@ export const AppNavigator: React.FC = () => {
         component={HelpSupportScreen}
         options={{
           headerTitle: 'Help & Support',
+        }}
+      />
+
+      <Stack.Screen
+        name="AdminDashboard"
+        component={AdminDashboardScreen}
+        options={{
+          headerTitle: () => (
+            <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary }}>
+              Admin <Text style={{ color: colors.primary }}>Dashboard</Text>
+            </Text>
+          ),
         }}
       />
     </Stack.Navigator>

@@ -9,9 +9,28 @@ export interface Profile {
   email: string;
   phone?: string | null;
   avatar_id?: string | null;
+  role?: string | null;
+  status?: 'active' | 'blocked' | 'suspended' | null;
   created_at: string;
   updated_at: string;
 }
+
+export const ADMIN_EMAILS: string[] = ['abhidagar6319@gmail.com'];
+
+export const isAdminEmail = (email?: string | null): boolean => {
+  if (!email) return false;
+  return ADMIN_EMAILS.map((e) => e.toLowerCase().trim()).includes(email.toLowerCase().trim());
+};
+
+export const isUserAdmin = (
+  profile?: Profile | null,
+  authEmail?: string | null
+): boolean => {
+  if (profile?.role === 'admin' || profile?.role === 'super_admin') return true;
+  if (isAdminEmail(profile?.email)) return true;
+  if (isAdminEmail(authEmail)) return true;
+  return false;
+};
 
 export interface Customer {
   id: string;
@@ -106,6 +125,7 @@ export type RootStackParamList = {
   Terms: undefined;
   Notifications: undefined;
   HelpSupport: undefined;
+  AdminDashboard: undefined;
 };
 
 export type AuthStackParamList = {
