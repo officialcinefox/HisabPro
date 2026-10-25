@@ -110,6 +110,110 @@ const QR_CODE_SVG = `
 `;
 
 /**
+ * Handle direct PDF download & print on Web platform
+ */
+async function generateAndDownloadPdfOnWeb(html: string, customerName: string): Promise<void> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+  const fileName = `HisabPro_Statement_${customerName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+  // Helper to load html2pdf script dynamically
+  const loadHtml2Pdf = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      if ((window as any).html2pdf) {
+        resolve((window as any).html2pdf);
+        return;
+      }
+      const existing = document.getElementById('html2pdf-cdn');
+      if (existing) {
+        existing.addEventListener('load', () => resolve((window as any).html2pdf));
+        existing.addEventListener('error', reject);
+        return;
+      }
+      const script = document.createElement('script');
+      script.id = 'html2pdf-cdn';
+      script.src =
+        'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = () => resolve((window as any).html2pdf);
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  };
+
+  // 1. Try direct PDF file generation & download via html2pdf
+  try {
+    const html2pdf = await Promise.race([
+      loadHtml2Pdf(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+    ]);
+
+    if (html2pdf) {
+      const container = document.createElement('div');
+      container.innerHTML = html;
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.style.width = '794px'; // A4 width at 96 DPI
+      container.style.backgroundColor = '#FFFFFF';
+      document.body.appendChild(container);
+
+      // Remove web-only toolbar from direct PDF
+      const toolbar = container.querySelector('.web-only-toolbar');
+      if (toolbar) toolbar.remove();
+
+      const opt = {
+        margin: [6, 6, 6, 6],
+        filename: `${fileName}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      };
+
+      await html2pdf().set(opt).from(container).save();
+      document.body.removeChild(container);
+      return;
+    }
+  } catch (err) {
+    console.log('Direct html2pdf download not available, opening print window:', err);
+  }
+
+  // 2. Fallback: Open dedicated print tab / window with the statement
+  const printWindow = window.open('', '_blank');
+  if (printWindow) {
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 400);
+  } else {
+    // 3. Fallback: Use hidden iframe for printing
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+      iframe.contentWindow?.focus();
+      setTimeout(() => {
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 2000);
+      }, 500);
+    }
+  }
+}
+
+/**
  * Generate a PDF Statement matching the reference layout in Image 3
  */
 export const generateAndShareCustomerReportPdf = async (
@@ -175,7 +279,6 @@ export const generateAndShareCustomerReportPdf = async (
 
   const isLenaHai = currentOverallBalance.status === 'lena_hai';
   const isDenaHai = currentOverallBalance.status === 'dena_hai';
-  const statusColor = isLenaHai ? '#16A34A' : isDenaHai ? '#DC2626' : '#64748B';
   const bannerBg = '#FFF7ED';
   const bannerBorder = '#FED7AA';
   const bannerAccent = '#EA580C';
@@ -199,13 +302,61 @@ export const generateAndShareCustomerReportPdf = async (
         <style>
           * {
             box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             color: #0F172A;
             margin: 0;
-            padding: 32px 36px;
+            padding: 28px 32px;
             background-color: #FFFFFF;
+          }
+          @media print {
+            body {
+              padding: 14px 18px;
+            }
+            .web-only-toolbar {
+              display: none !important;
+            }
+          }
+          .web-only-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #0B0F11;
+            padding: 12px 18px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+          }
+          .web-title {
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 800;
+          }
+          .web-btn-group {
+            display: flex;
+            gap: 8px;
+          }
+          .web-btn-print {
+            background-color: #FF7A00;
+            color: #0B0F11;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 800;
+            cursor: pointer;
+            font-size: 12px;
+          }
+          .web-btn-close {
+            background-color: #242220;
+            color: #FFFFFF;
+            border: 1px solid #475569;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 12px;
           }
           .header {
             display: flex;
@@ -477,6 +628,15 @@ export const generateAndShareCustomerReportPdf = async (
         </style>
       </head>
       <body>
+        <!-- Web Only Toolbar -->
+        <div class="web-only-toolbar">
+          <div class="web-title">HISAB<span style="color:#FF7A00">PRO</span> Statement Preview</div>
+          <div class="web-btn-group">
+            <button class="web-btn-print" onclick="window.print()">🖨️ Save as PDF / Print</button>
+            <button class="web-btn-close" onclick="window.close()">✕ Close</button>
+          </div>
+        </div>
+
         <!-- Header -->
         <div class="header">
           <div>
@@ -601,11 +761,13 @@ export const generateAndShareCustomerReportPdf = async (
     </html>
   `;
 
+  // On Web: use direct download + print window
   if (Platform.OS === 'web') {
-    await Print.printAsync({ html });
+    await generateAndDownloadPdfOnWeb(html, customer.name);
     return;
   }
 
+  // On Mobile: use native Print & Sharing modules
   const { uri } = await Print.printToFileAsync({ html });
 
   if (await Sharing.isAvailableAsync()) {

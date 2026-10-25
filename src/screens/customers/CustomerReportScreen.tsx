@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BottomNavBar } from '../../components/BottomNavBar';
 import { Input } from '../../components/Input';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -158,11 +159,12 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
     : colors.settled;
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
       {/* Customer Header Info Card */}
       <View
         style={[
@@ -472,7 +474,9 @@ export const CustomerReportScreen: React.FC<CustomerReportScreenProps> = ({
           </Text>
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+      <BottomNavBar activeTab="Customers" />
+    </View>
   );
 };
 

@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '../../components/Button';
+import { BottomNavBar } from '../../components/BottomNavBar';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { ReminderCard } from '../../components/ReminderCard';
 import { useData } from '../../context/DataContext';
@@ -529,6 +530,9 @@ export const CustomerDetailScreen: React.FC<CustomerDetailScreenProps> = ({
           )}
         </View>
       </ScrollView>
+
+      {/* Bottom Navigation Bar */}
+      <BottomNavBar activeTab="Customers" />
 
       {/* Delete Customer Modal */}
       <ConfirmModal

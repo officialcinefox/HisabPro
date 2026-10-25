@@ -94,7 +94,7 @@ export interface CategoryExpenseSummary {
 // Navigation Param Lists
 export type RootStackParamList = {
   Auth: undefined;
-  Main: undefined;
+  Main: { screen?: keyof MainTabParamList } | undefined;
   CustomerDetail: { customerId: string };
   AddCustomer: undefined;
   AddTransaction: { customerId: string; initialType?: TransactionType };
