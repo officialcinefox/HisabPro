@@ -11,9 +11,40 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   );
 }
 
+// Resilient multi-storage adapter (guarantees persistence across browser restarts and mobile app closes)
+const persistentStorage = {
+  getItem: async (key: string): Promise<string | null> => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const val = window.localStorage.getItem(key);
+        if (val) return val;
+      }
+      return await AsyncStorage.getItem(key);
+    } catch (_) {
+      return null;
+    }
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, value);
+      }
+      await AsyncStorage.setItem(key, value);
+    } catch (_) {}
+  },
+  removeItem: async (key: string): Promise<void> => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(key);
+      }
+      await AsyncStorage.removeItem(key);
+    } catch (_) {}
+  },
+};
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: AsyncStorage,
+    storage: persistentStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

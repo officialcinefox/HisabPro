@@ -254,174 +254,250 @@ export const ProfileScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* 2x3 Grid of Summary Cards matching Reference Image */}
-      <View style={styles.summaryGrid}>
-        {/* Total Customers */}
+      {/* Account Summary Cards Layout matching Reference Image */}
+      <View style={styles.summaryContainer}>
+        {/* Row 1: Net Balance Highlight Card */}
         <TouchableOpacity
-          activeOpacity={0.7}
+          activeOpacity={0.8}
           onPress={() => navigation.navigate('Main', { screen: 'Customers' } as any)}
           style={[
-            styles.summaryCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            styles.netBalanceHighlightCard,
+            {
+              backgroundColor: isDark ? '#11161B' : colors.card,
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
+            },
           ]}
         >
-          <View style={styles.summaryCardTop}>
+          <View style={styles.netBalanceLeft}>
+            <View style={styles.netBalanceIconCircle}>
+              <Ionicons name="bar-chart" size={20} color="#3B82F6" />
+            </View>
+            <View style={{ marginLeft: 14 }}>
+              <Text
+                style={[
+                  styles.netBalanceLabel,
+                  { color: isDark ? '#94A3B8' : colors.textSecondary },
+                ]}
+              >
+                Net Balance
+              </Text>
+              <Text
+                style={[
+                  styles.netBalanceValue,
+                  {
+                    color:
+                      dashboardSummary.netBalance >= 0 ? '#10B981' : '#EF4444',
+                  },
+                ]}
+              >
+                {formatCurrency(dashboardSummary.netBalance)}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.arrowCircleBtn,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(255, 255, 255, 0.06)'
+                  : 'rgba(0, 0, 0, 0.05)',
+              },
+            ]}
+          >
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={isDark ? '#F1F5F9' : '#0F172A'}
+            />
+          </View>
+        </TouchableOpacity>
+
+        {/* Row 2: 3 Cards Side-by-Side (Customers, Transactions, Expenses) */}
+        <View style={styles.summaryRowThree}>
+          {/* Total Customers */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('Main', { screen: 'Customers' } as any)}
+            style={[
+              styles.statCardSmall,
+              {
+                backgroundColor: isDark ? '#11161B' : colors.card,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
+              },
+            ]}
+          >
             <View
               style={[
-                styles.summaryIconBox,
+                styles.statIconBoxSmall,
                 { backgroundColor: 'rgba(255, 122, 0, 0.15)' },
               ]}
             >
-              <Ionicons name="people" size={18} color={colors.primary} />
+              <Ionicons name="people" size={17} color="#FF7A00" />
             </View>
-            <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
-          </View>
-          <Text style={[styles.summaryCardLabel, { color: colors.textSecondary }]}>
-            Total Customers
-          </Text>
-          <Text style={[styles.summaryCardValue, { color: colors.textPrimary }]}>
-            {customers.length}
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={[
+                styles.statLabelSmall,
+                { color: isDark ? '#94A3B8' : colors.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              Total Customers
+            </Text>
+            <Text
+              style={[
+                styles.statValueSmall,
+                { color: isDark ? '#FFFFFF' : '#0F172A' },
+              ]}
+            >
+              {customers.length}
+            </Text>
+          </TouchableOpacity>
 
-        {/* Total Transactions */}
-        <View
-          style={[
-            styles.summaryCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.summaryCardTop}>
+          {/* Total Transactions */}
+          <View
+            style={[
+              styles.statCardSmall,
+              {
+                backgroundColor: isDark ? '#11161B' : colors.card,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
+              },
+            ]}
+          >
             <View
               style={[
-                styles.summaryIconBox,
+                styles.statIconBoxSmall,
                 { backgroundColor: 'rgba(139, 92, 246, 0.15)' },
               ]}
             >
-              <Ionicons name="document-text" size={18} color="#8B5CF6" />
+              <Ionicons name="document-text" size={17} color="#8B5CF6" />
             </View>
-            <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+            <Text
+              style={[
+                styles.statLabelSmall,
+                { color: isDark ? '#94A3B8' : colors.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              Total Transactions
+            </Text>
+            <Text
+              style={[
+                styles.statValueSmall,
+                { color: isDark ? '#FFFFFF' : '#0F172A' },
+              ]}
+            >
+              {transactions.length}
+            </Text>
           </View>
-          <Text style={[styles.summaryCardLabel, { color: colors.textSecondary }]}>
-            Total Transactions
-          </Text>
-          <Text style={[styles.summaryCardValue, { color: colors.textPrimary }]}>
-            {transactions.length}
-          </Text>
-        </View>
 
-        {/* Total Expenses */}
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('Main', { screen: 'Expenses' } as any)}
-          style={[
-            styles.summaryCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.summaryCardTop}>
+          {/* Total Expenses */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('Main', { screen: 'Expenses' } as any)}
+            style={[
+              styles.statCardSmall,
+              {
+                backgroundColor: isDark ? '#11161B' : colors.card,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
+              },
+            ]}
+          >
             <View
               style={[
-                styles.summaryIconBox,
+                styles.statIconBoxSmall,
                 { backgroundColor: 'rgba(245, 158, 11, 0.15)' },
               ]}
             >
-              <Ionicons name="wallet" size={18} color="#F59E0B" />
+              <Ionicons name="wallet" size={17} color="#F59E0B" />
             </View>
-            <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
-          </View>
-          <Text style={[styles.summaryCardLabel, { color: colors.textSecondary }]}>
-            Total Expenses
-          </Text>
-          <Text style={[styles.summaryCardValue, { color: colors.textPrimary }]}>
-            {expenses.length}
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={[
+                styles.statLabelSmall,
+                { color: isDark ? '#94A3B8' : colors.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              Total Expenses
+            </Text>
+            <Text
+              style={[
+                styles.statValueSmall,
+                { color: isDark ? '#FFFFFF' : '#0F172A' },
+              ]}
+            >
+              {expenses.length}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-        {/* Total Given */}
-        <View
-          style={[
-            styles.summaryCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.summaryCardTop}>
+        {/* Row 3: 2 Cards Side-by-Side (Total Given, Total Received) */}
+        <View style={styles.summaryRowTwo}>
+          {/* Total Given */}
+          <View
+            style={[
+              styles.statCardWide,
+              {
+                backgroundColor: isDark ? '#11161B' : colors.card,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
+              },
+            ]}
+          >
             <View
               style={[
-                styles.summaryIconBox,
+                styles.statIconBoxWide,
                 { backgroundColor: 'rgba(239, 68, 68, 0.15)' },
               ]}
             >
               <Ionicons name="arrow-up" size={18} color="#EF4444" />
             </View>
-            <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
-          </View>
-          <Text style={[styles.summaryCardLabel, { color: colors.textSecondary }]}>
-            Total Given
-          </Text>
-          <Text style={[styles.summaryCardValue, { color: '#EF4444' }]}>
-            {formatCurrency(dashboardSummary.totalGiven)}
-          </Text>
-        </View>
-
-        {/* Total Received */}
-        <View
-          style={[
-            styles.summaryCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.summaryCardTop}>
-            <View
-              style={[
-                styles.summaryIconBox,
-                { backgroundColor: 'rgba(34, 197, 94, 0.15)' },
-              ]}
-            >
-              <Ionicons name="arrow-down" size={18} color="#22C55E" />
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text
+                style={[
+                  styles.statLabelSmall,
+                  { color: isDark ? '#94A3B8' : colors.textSecondary },
+                ]}
+              >
+                Total Given
+              </Text>
+              <Text style={[styles.statValueWide, { color: '#EF4444' }]}>
+                {formatCurrency(dashboardSummary.totalGiven)}
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
           </View>
-          <Text style={[styles.summaryCardLabel, { color: colors.textSecondary }]}>
-            Total Received
-          </Text>
-          <Text style={[styles.summaryCardValue, { color: '#22C55E' }]}>
-            {formatCurrency(dashboardSummary.totalReceived)}
-          </Text>
-        </View>
 
-        {/* Net Balance */}
-        <View
-          style={[
-            styles.summaryCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.summaryCardTop}>
-            <View
-              style={[
-                styles.summaryIconBox,
-                { backgroundColor: 'rgba(59, 130, 246, 0.15)' },
-              ]}
-            >
-              <Ionicons name="bar-chart" size={18} color="#3B82F6" />
-            </View>
-            <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
-          </View>
-          <Text style={[styles.summaryCardLabel, { color: colors.textSecondary }]}>
-            Net Balance
-          </Text>
-          <Text
+          {/* Total Received */}
+          <View
             style={[
-              styles.summaryCardValue,
+              styles.statCardWide,
               {
-                color:
-                  dashboardSummary.netBalance >= 0 ? '#22C55E' : '#EF4444',
+                backgroundColor: isDark ? '#11161B' : colors.card,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
               },
             ]}
           >
-            {formatCurrency(dashboardSummary.netBalance)}
-          </Text>
+            <View
+              style={[
+                styles.statIconBoxWide,
+                { backgroundColor: 'rgba(16, 185, 129, 0.15)' },
+              ]}
+            >
+              <Ionicons name="arrow-down" size={18} color="#10B981" />
+            </View>
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text
+                style={[
+                  styles.statLabelSmall,
+                  { color: isDark ? '#94A3B8' : colors.textSecondary },
+                ]}
+              >
+                Total Received
+              </Text>
+              <Text style={[styles.statValueWide, { color: '#10B981' }]}>
+                {formatCurrency(dashboardSummary.totalReceived)}
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
 
@@ -863,38 +939,97 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  summaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  summaryContainer: {
     gap: 10,
-    marginBottom: 10,
-    justifyContent: 'space-between',
+    marginBottom: 14,
   },
-  summaryCard: {
-    width: '31%',
-    padding: 12,
-    borderRadius: 16,
+  netBalanceHighlightCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 18,
     borderWidth: 1,
   },
-  summaryCardTop: {
+  netBalanceLeft: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
   },
-  summaryIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+  netBalanceIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  summaryCardLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+  netBalanceLabel: {
+    fontSize: 12,
+    fontWeight: '600',
   },
-  summaryCardValue: {
-    fontSize: 15,
+  netBalanceValue: {
+    fontSize: 26,
+    fontWeight: '900',
+    marginTop: 2,
+    letterSpacing: -0.5,
+  },
+  arrowCircleBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryRowThree: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  statCardSmall: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 8,
+  },
+  statIconBoxSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statLabelSmall: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  statValueSmall: {
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  summaryRowTwo: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  statCardWide: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  statIconBoxWide: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statValueWide: {
+    fontSize: 18,
     fontWeight: '900',
     marginTop: 2,
     letterSpacing: -0.3,

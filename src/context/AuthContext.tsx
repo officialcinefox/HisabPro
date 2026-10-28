@@ -1,7 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase';
 import { Profile } from '../types';
+
+const PERSISTED_AUTH_KEY = '@hisabpro_persisted_auth';
+const PERSISTED_PROFILE_KEY = '@hisabpro_persisted_profile';
 
 interface AuthContextType {
   user: User | null;
@@ -60,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!error && data) {
         setProfile(data as Profile);
+        await AsyncStorage.setItem(PERSISTED_PROFILE_KEY, JSON.stringify(data));
       }
     } catch (e) {
       console.warn('Error fetching profile:', e);
@@ -67,32 +73,103 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // 1. Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setIsLoading(false);
-    });
+    let isMounted = true;
 
-    // 2. Listen for auth changes
+    // 1. Instantly restore saved user & profile so login is preserved even after days
+    const restorePersistedAuth = async () => {
+      try {
+        const [savedAuth, savedProfile] = await Promise.all([
+          AsyncStorage.getItem(PERSISTED_AUTH_KEY),
+          AsyncStorage.getItem(PERSISTED_PROFILE_KEY),
+        ]);
+
+        if (savedAuth && isMounted) {
+          const parsedUser = JSON.parse(savedAuth);
+          setUser(parsedUser);
+        }
+        if (savedProfile && isMounted) {
+          setProfile(JSON.parse(savedProfile));
+        }
+      } catch (e) {
+        console.warn('Error restoring persisted auth:', e);
+      }
+    };
+
+    restorePersistedAuth();
+
+    // 2. Validate session with Supabase and refresh token if needed
+    const initSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session?.user && isMounted) {
+          setSession(session);
+          setUser(session.user);
+          await AsyncStorage.setItem(PERSISTED_AUTH_KEY, JSON.stringify(session.user));
+          await fetchProfile(session.user.id);
+
+          // If token expires in less than 2 minutes, refresh it now
+          if (session.expires_at && session.expires_at * 1000 < Date.now() + 120000) {
+            const { data: refreshed } = await supabase.auth.refreshSession();
+            if (refreshed.session && isMounted) {
+              setSession(refreshed.session);
+              setUser(refreshed.session.user);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error getting supabase session:', e);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    initSession();
+
+    // 3. Listen for Supabase auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (newSession?.user) {
+        setSession(newSession);
+        setUser(newSession.user);
+        await AsyncStorage.setItem(PERSISTED_AUTH_KEY, JSON.stringify(newSession.user));
         await fetchProfile(newSession.user.id);
-      } else {
+      } else if (event === 'SIGNED_OUT') {
+        // ONLY clear credentials when explicitly signed out
+        setSession(null);
+        setUser(null);
         setProfile(null);
+        await AsyncStorage.multiRemove([PERSISTED_AUTH_KEY, PERSISTED_PROFILE_KEY]);
       }
-      setIsLoading(false);
+      if (isMounted) setIsLoading(false);
+    });
+
+    // 4. AppState listener: Automatically auto-refresh when app resumes from background
+    const appStateSub = AppState.addEventListener('change', async (state) => {
+      if (state === 'active') {
+        supabase.auth.startAutoRefresh();
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (
+            data?.session &&
+            data.session.expires_at &&
+            data.session.expires_at * 1000 < Date.now()
+          ) {
+            await supabase.auth.refreshSession();
+          }
+        } catch (_) {}
+      } else {
+        supabase.auth.stopAutoRefresh();
+      }
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
+      appStateSub.remove();
     };
   }, []);
 
@@ -106,6 +183,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: error.message };
       }
       if (data.user) {
+        setUser(data.user);
+        setSession(data.session);
+        await AsyncStorage.setItem(PERSISTED_AUTH_KEY, JSON.stringify(data.user));
         await fetchProfile(data.user.id);
       }
       return { error: null };
@@ -138,6 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data.user) {
+        await AsyncStorage.setItem(PERSISTED_AUTH_KEY, JSON.stringify(data.user));
         // Also ensure profile row is created
         await supabase
           .from('profiles')
@@ -178,11 +259,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('Sign out error:', err);
+    } finally {
       setUser(null);
       setSession(null);
       setProfile(null);
-    } catch (err) {
-      console.warn('Sign out error:', err);
+      await AsyncStorage.multiRemove([PERSISTED_AUTH_KEY, PERSISTED_PROFILE_KEY]);
     }
   };
 

@@ -23,6 +23,7 @@ import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { expenseCategoryColors } from '../../theme/colors';
 import { Expense, ExpenseCategory, RootStackParamList } from '../../types';
+import { generateAndDownloadExpensesPdf } from '../../utils/expensePdfGenerator';
 import { formatCurrency, formatDate, getTodayDateString } from '../../utils/formatting';
 import { dataService } from '../../services/dataService';
 
@@ -124,6 +125,42 @@ export const ExpensesScreen: React.FC = () => {
     return { monthTotal: total, categoryBreakdown: breakdown };
   }, [expenses, selectedMonthPrefix]);
 
+  // Previous month total to calculate accurate trend in PDF
+  const previousMonthPrefix = useMemo(() => {
+    let pm = selectedMonth - 1;
+    let py = selectedYear;
+    if (pm < 0) {
+      pm = 11;
+      py -= 1;
+    }
+    return `${py}-${String(pm + 1).padStart(2, '0')}`;
+  }, [selectedMonth, selectedYear]);
+
+  const previousMonthTotal = useMemo(() => {
+    return expenses
+      .filter((e) => e.expense_date.startsWith(previousMonthPrefix))
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  }, [expenses, previousMonthPrefix]);
+
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handleDownloadExpensesPdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      await generateAndDownloadExpensesPdf({
+        expenses: filteredExpenses,
+        periodLabel: currentMonthLabel,
+        totalExpenses: monthTotal,
+        categoryBreakdown,
+        previousMonthTotal,
+      });
+    } catch (e) {
+      console.warn('PDF export error:', e);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!targetExpense) return;
     setIsDeleting(true);
@@ -154,20 +191,37 @@ export const ExpensesScreen: React.FC = () => {
           </Text>
         </View>
 
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setMonthPickerVisible(true)}
-          style={[
-            styles.monthSelectPill,
-            { backgroundColor: colors.cardElevated, borderColor: colors.border },
-          ]}
-        >
-          <Ionicons name="calendar" size={14} color={colors.primary} />
-          <Text style={[styles.monthSelectText, { color: colors.textPrimary }]}>
-            {currentMonthLabel}
-          </Text>
-          <Ionicons name="chevron-down" size={12} color={colors.textSecondary} />
-        </TouchableOpacity>
+        <View style={styles.heroActionsRow}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleDownloadExpensesPdf}
+            disabled={isExportingPdf}
+            style={[
+              styles.downloadPdfBtn,
+              { backgroundColor: colors.primary },
+            ]}
+          >
+            <Ionicons name="document-text" size={13} color="#0B0F11" />
+            <Text style={styles.downloadPdfText}>
+              {isExportingPdf ? 'Exporting...' : 'PDF'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setMonthPickerVisible(true)}
+            style={[
+              styles.monthSelectPill,
+              { backgroundColor: colors.cardElevated, borderColor: colors.border },
+            ]}
+          >
+            <Ionicons name="calendar" size={13} color={colors.primary} />
+            <Text style={[styles.monthSelectText, { color: colors.textPrimary }]}>
+              {currentMonthLabel}
+            </Text>
+            <Ionicons name="chevron-down" size={12} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -327,12 +381,29 @@ export const ExpensesScreen: React.FC = () => {
 
             {/* Section Header: All Expenses */}
             <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                All <Text style={{ color: colors.primary }}>Expenses</Text>
-              </Text>
-              <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>
-                {filteredExpenses.length} records
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                  All <Text style={{ color: colors.primary }}>Expenses</Text>
+                </Text>
+                <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>
+                  ({filteredExpenses.length})
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleDownloadExpensesPdf}
+                disabled={isExportingPdf}
+                style={[
+                  styles.downloadReportBtn,
+                  { backgroundColor: colors.cardElevated, borderColor: colors.primary },
+                ]}
+              >
+                <Ionicons name="download-outline" size={13} color={colors.primary} />
+                <Text style={[styles.downloadReportBtnText, { color: colors.primary }]}>
+                  {isExportingPdf ? 'Exporting...' : 'Report PDF'}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Search & Filter Row */}
@@ -497,6 +568,37 @@ const styles = StyleSheet.create({
   heroSubtitle: {
     fontSize: 12,
     marginTop: 2,
+  },
+  heroActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  downloadPdfBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  downloadPdfText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0B0F11',
+  },
+  downloadReportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  downloadReportBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   monthSelectPill: {
     flexDirection: 'row',
