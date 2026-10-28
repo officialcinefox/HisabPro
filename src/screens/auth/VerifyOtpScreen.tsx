@@ -122,7 +122,7 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
           </View>
 
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            Verify Code
+            Verify <Text style={{ color: colors.primary }}>Code</Text>
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Enter the 6-digit code sent to:

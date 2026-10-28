@@ -114,7 +114,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
               </View>
 
               <Text style={[styles.title, { color: colors.textPrimary }]}>
-                Set New Password
+                Set New <Text style={{ color: colors.primary }}>Password</Text>
               </Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                 Enter your new password below.

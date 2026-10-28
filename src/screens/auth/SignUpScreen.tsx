@@ -87,7 +87,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           ]}
         >
           <Text style={[styles.formTitle, { color: colors.textPrimary }]}>
-            Sign Up
+            Create your <Text style={{ color: colors.primary }}>Account</Text>
           </Text>
           <Text style={[styles.formSubtitle, { color: colors.textSecondary }]}>
             Start tracking udhar, reminders & personal expenses

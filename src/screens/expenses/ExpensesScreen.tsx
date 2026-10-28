@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import {
   FlatList,
+  Modal,
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -143,17 +145,111 @@ export const ExpensesScreen: React.FC = () => {
   }, [expenses, previousMonthPrefix]);
 
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  type ReportRangeType = 'this_month' | 'last_month' | 'last_30_days' | 'custom';
+  const [reportRangeType, setReportRangeType] = useState<ReportRangeType>('this_month');
 
-  const handleDownloadExpensesPdf = async () => {
+  // Custom date state
+  const todayStr = getTodayDateString();
+  const defaultStartStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split('T')[0];
+  }, []);
+  const [customStartDate, setCustomStartDate] = useState(defaultStartStr);
+  const [customEndDate, setCustomEndDate] = useState(todayStr);
+
+  // Compute selected report data
+  const { reportExpenses, reportPeriodLabel, reportTotal, reportBreakdown } = useMemo(() => {
+    let list: Expense[] = [];
+    let label = '';
+
+    if (reportRangeType === 'this_month') {
+      const prefix = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+      list = expenses.filter((e) => e.expense_date.startsWith(prefix));
+      label = currentMonthLabel;
+    } else if (reportRangeType === 'last_month') {
+      let pm = selectedMonth - 1;
+      let py = selectedYear;
+      if (pm < 0) {
+        pm = 11;
+        py -= 1;
+      }
+      const prefix = `${py}-${String(pm + 1).padStart(2, '0')}`;
+      list = expenses.filter((e) => e.expense_date.startsWith(prefix));
+      const lmDate = new Date(py, pm, 1);
+      label = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(lmDate);
+    } else if (reportRangeType === 'last_30_days') {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      const minDate = d.toISOString().split('T')[0];
+      list = expenses.filter((e) => e.expense_date >= minDate && e.expense_date <= todayStr);
+      label = 'Last 30 Days';
+    } else {
+      // custom
+      const start = customStartDate.trim();
+      const end = customEndDate.trim();
+      list = expenses.filter((e) => {
+        if (start && e.expense_date < start) return false;
+        if (end && e.expense_date > end) return false;
+        return true;
+      });
+      label = `${start || 'Start'} to ${end || 'End'}`;
+    }
+
+    let total = 0;
+    const catSums: Record<ExpenseCategory, number> = {
+      Bills: 0,
+      Shopping: 0,
+      Food: 0,
+      Travel: 0,
+      Other: 0,
+    };
+
+    for (const exp of list) {
+      const amt = Number(exp.amount) || 0;
+      total += amt;
+      if (catSums[exp.category] !== undefined) {
+        catSums[exp.category] += amt;
+      } else {
+        catSums.Other += amt;
+      }
+    }
+
+    const breakdown = ALL_CATEGORIES.map((cat) => {
+      const amt = catSums[cat];
+      const pct = total > 0 ? (amt / total) * 100 : 0;
+      return { category: cat, amount: amt, percentage: pct };
+    }).filter((item) => item.amount > 0);
+
+    return {
+      reportExpenses: list,
+      reportPeriodLabel: label,
+      reportTotal: total,
+      reportBreakdown: breakdown,
+    };
+  }, [
+    reportRangeType,
+    expenses,
+    selectedYear,
+    selectedMonth,
+    currentMonthLabel,
+    customStartDate,
+    customEndDate,
+    todayStr,
+  ]);
+
+  const handleDownloadSelectedReport = async () => {
     setIsExportingPdf(true);
     try {
       await generateAndDownloadExpensesPdf({
-        expenses: filteredExpenses,
-        periodLabel: currentMonthLabel,
-        totalExpenses: monthTotal,
-        categoryBreakdown,
-        previousMonthTotal,
+        expenses: reportExpenses,
+        periodLabel: reportPeriodLabel,
+        totalExpenses: reportTotal,
+        categoryBreakdown: reportBreakdown,
+        previousMonthTotal: reportRangeType === 'this_month' ? previousMonthTotal : undefined,
       });
+      setReportModalVisible(false);
     } catch (e) {
       console.warn('PDF export error:', e);
     } finally {
@@ -180,7 +276,7 @@ export const ExpensesScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Top Hero Header matching Reference Image */}
+      {/* Clean Top Hero Header */}
       <View style={styles.heroHeader}>
         <View style={styles.heroTextCol}>
           <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
@@ -191,37 +287,20 @@ export const ExpensesScreen: React.FC = () => {
           </Text>
         </View>
 
-        <View style={styles.heroActionsRow}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={handleDownloadExpensesPdf}
-            disabled={isExportingPdf}
-            style={[
-              styles.downloadPdfBtn,
-              { backgroundColor: colors.primary },
-            ]}
-          >
-            <Ionicons name="document-text" size={13} color="#0B0F11" />
-            <Text style={styles.downloadPdfText}>
-              {isExportingPdf ? 'Exporting...' : 'PDF'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setMonthPickerVisible(true)}
-            style={[
-              styles.monthSelectPill,
-              { backgroundColor: colors.cardElevated, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="calendar" size={13} color={colors.primary} />
-            <Text style={[styles.monthSelectText, { color: colors.textPrimary }]}>
-              {currentMonthLabel}
-            </Text>
-            <Ionicons name="chevron-down" size={12} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setMonthPickerVisible(true)}
+          style={[
+            styles.monthSelectPill,
+            { backgroundColor: colors.cardElevated, borderColor: colors.border },
+          ]}
+        >
+          <Ionicons name="calendar" size={14} color={colors.primary} />
+          <Text style={[styles.monthSelectText, { color: colors.textPrimary }]}>
+            {currentMonthLabel}
+          </Text>
+          <Ionicons name="chevron-down" size={12} color={colors.textSecondary} />
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -392,16 +471,15 @@ export const ExpensesScreen: React.FC = () => {
 
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={handleDownloadExpensesPdf}
-                disabled={isExportingPdf}
+                onPress={() => setReportModalVisible(true)}
                 style={[
                   styles.downloadReportBtn,
                   { backgroundColor: colors.cardElevated, borderColor: colors.primary },
                 ]}
               >
-                <Ionicons name="download-outline" size={13} color={colors.primary} />
+                <Ionicons name="document-text-outline" size={13} color={colors.primary} />
                 <Text style={[styles.downloadReportBtnText, { color: colors.primary }]}>
-                  {isExportingPdf ? 'Exporting...' : 'Report PDF'}
+                  Report PDF
                 </Text>
               </TouchableOpacity>
             </View>
@@ -540,6 +618,219 @@ export const ExpensesScreen: React.FC = () => {
         }}
         onClose={() => setMonthPickerVisible(false)}
       />
+
+      {/* Date Filter & Expense Report Export Modal */}
+      <Modal
+        visible={reportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReportModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.reportModalCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            {/* Modal Header */}
+            <View style={styles.reportModalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View
+                  style={[
+                    styles.reportIconBox,
+                    { backgroundColor: 'rgba(255, 122, 0, 0.15)' },
+                  ]}
+                >
+                  <Ionicons name="document-text" size={20} color={colors.primary} />
+                </View>
+                <View>
+                  <Text style={[styles.reportModalTitle, { color: colors.textPrimary }]}>
+                    Export Expenses <Text style={{ color: colors.primary }}>Report</Text>
+                  </Text>
+                  <Text style={[styles.reportModalSub, { color: colors.textSecondary }]}>
+                    Select date period for PDF download
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setReportModalVisible(false)}
+                style={styles.closeModalBtn}
+              >
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Range Presets */}
+            <Text style={[styles.rangeSectionLabel, { color: colors.textSecondary }]}>
+              SELECT TIMEFRAME
+            </Text>
+
+            <View style={styles.rangeOptionsGrid}>
+              {[
+                { key: 'this_month', label: `This Month (${currentMonthLabel})` },
+                { key: 'last_month', label: 'Last Month' },
+                { key: 'last_30_days', label: 'Last 30 Days' },
+                { key: 'custom', label: 'Custom Date Range 🗓️' },
+              ].map((opt) => {
+                const isSelected = reportRangeType === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    activeOpacity={0.8}
+                    onPress={() => setReportRangeType(opt.key as ReportRangeType)}
+                    style={[
+                      styles.rangeOptionPill,
+                      {
+                        backgroundColor: isSelected
+                          ? colors.primary
+                          : colors.cardElevated,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={15}
+                      color={isSelected ? '#0B0F11' : colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.rangeOptionText,
+                        {
+                          color: isSelected ? '#0B0F11' : colors.textPrimary,
+                          fontWeight: isSelected ? '800' : '600',
+                        },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Custom Date Inputs (if custom selected) */}
+            {reportRangeType === 'custom' && (
+              <View style={styles.customDateContainer}>
+                <View style={styles.customDateRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.dateInputLabel, { color: colors.textSecondary }]}>
+                      START DATE (YYYY-MM-DD)
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.dateTextInput,
+                        {
+                          backgroundColor: colors.cardElevated,
+                          borderColor: colors.border,
+                          color: colors.textPrimary,
+                        },
+                      ]}
+                      value={customStartDate}
+                      onChangeText={setCustomStartDate}
+                      placeholder="2026-10-01"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+
+                  <View style={{ width: 10 }} />
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.dateInputLabel, { color: colors.textSecondary }]}>
+                      END DATE (YYYY-MM-DD)
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.dateTextInput,
+                        {
+                          backgroundColor: colors.cardElevated,
+                          borderColor: colors.border,
+                          color: colors.textPrimary,
+                        },
+                      ]}
+                      value={customEndDate}
+                      onChangeText={setCustomEndDate}
+                      placeholder="2026-10-28"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Preview Summary Box */}
+            <View
+              style={[
+                styles.reportPreviewBox,
+                { backgroundColor: colors.cardElevated, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.previewRow}>
+                <Text style={[styles.previewLabel, { color: colors.textSecondary }]}>
+                  Selected Period:
+                </Text>
+                <Text style={[styles.previewVal, { color: colors.textPrimary }]}>
+                  {reportPeriodLabel}
+                </Text>
+              </View>
+
+              <View style={styles.previewRow}>
+                <Text style={[styles.previewLabel, { color: colors.textSecondary }]}>
+                  Matching Records:
+                </Text>
+                <Text style={[styles.previewVal, { color: colors.textPrimary }]}>
+                  {reportExpenses.length} records
+                </Text>
+              </View>
+
+              <View style={[styles.previewRow, { marginTop: 4 }]}>
+                <Text style={[styles.previewLabel, { color: colors.textSecondary, fontWeight: '700' }]}>
+                  Total Amount:
+                </Text>
+                <Text style={[styles.previewTotalVal, { color: colors.primary }]}>
+                  {formatCurrency(reportTotal)}
+                </Text>
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setReportModalVisible(false)}
+                style={[
+                  styles.cancelModalBtn,
+                  { backgroundColor: colors.cardElevated, borderColor: colors.border },
+                ]}
+              >
+                <Text style={[styles.cancelModalText, { color: colors.textSecondary }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleDownloadSelectedReport}
+                disabled={isExportingPdf || reportExpenses.length === 0}
+                style={[
+                  styles.downloadPdfActionBtn,
+                  {
+                    backgroundColor:
+                      reportExpenses.length === 0 ? '#64748B' : colors.primary,
+                  },
+                ]}
+              >
+                <Ionicons name="download" size={16} color="#0B0F11" />
+                <Text style={styles.downloadPdfActionText}>
+                  {isExportingPdf ? 'Generating PDF...' : 'Download PDF'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -569,35 +860,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  heroActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  downloadPdfBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
-  downloadPdfText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#0B0F11',
-  },
   downloadReportBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 14,
     borderWidth: 1,
   },
   downloadReportBtnText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
   },
   monthSelectPill: {
@@ -794,5 +1067,138 @@ const styles = StyleSheet.create({
   },
   moreExpenseBtn: {
     padding: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  reportModalCard: {
+    width: '100%',
+    maxWidth: 480,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    gap: 14,
+  },
+  reportModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  reportIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reportModalTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  reportModalSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  closeModalBtn: {
+    padding: 4,
+  },
+  rangeSectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  rangeOptionsGrid: {
+    gap: 8,
+  },
+  rangeOptionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  rangeOptionText: {
+    fontSize: 13,
+  },
+  customDateContainer: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 122, 0, 0.2)',
+  },
+  customDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateInputLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  dateTextInput: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  reportPreviewBox: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  previewLabel: {
+    fontSize: 12,
+  },
+  previewVal: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  previewTotalVal: {
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  cancelModalBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  cancelModalText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  downloadPdfActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  downloadPdfActionText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0B0F11',
   },
 });

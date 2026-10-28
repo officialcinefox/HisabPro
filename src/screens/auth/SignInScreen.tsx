@@ -74,7 +74,7 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
           ]}
         >
           <Text style={[styles.formTitle, { color: colors.textPrimary }]}>
-            Sign In to your Account
+            Sign In to your <Text style={{ color: colors.primary }}>Account</Text>
           </Text>
           <Text style={[styles.formSubtitle, { color: colors.textSecondary }]}>
             Manage your customer udhar, payments & expenses

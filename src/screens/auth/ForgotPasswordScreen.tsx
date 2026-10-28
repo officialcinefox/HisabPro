@@ -82,7 +82,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
           </View>
 
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            Forgot Password
+            Forgot <Text style={{ color: colors.primary }}>Password</Text>
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Enter your registered email address. We'll send you a 6-digit verification
